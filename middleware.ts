@@ -46,8 +46,14 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user && isLogin) {
+    // Already signed in — route to the right front door by role.
+    const { data: row } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single();
     const url = request.nextUrl.clone();
-    url.pathname = '/overview';
+    url.pathname = row?.role === 'client' ? '/portal' : '/overview';
     return NextResponse.redirect(url);
   }
 

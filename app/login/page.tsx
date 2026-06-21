@@ -18,7 +18,7 @@ export default async function LoginPage({
       <div className="card w-full max-w-sm p-6">
         <div className="mb-6">
           <div className="text-amber font-semibold text-lg">Sunline</div>
-          <div className="text-muted text-sm">Owner sign in</div>
+          <div className="text-muted text-sm">Sign in</div>
         </div>
         <form action={login} className="space-y-3">
           <div>
@@ -32,7 +32,7 @@ export default async function LoginPage({
               required
               autoComplete="email"
               className="input mt-1"
-              defaultValue="owner@sunline.test"
+              placeholder="you@example.com"
             />
           </div>
           <div>

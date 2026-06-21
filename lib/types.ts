@@ -25,6 +25,7 @@ export type Appointment = {
   invoiced: boolean;
   quality_rating: QualityRating | null;
   quality_reason: string | null;
+  confirmed_at: string | null;
 };
 
 export type Lead = {
@@ -35,3 +36,7 @@ export type Lead = {
   response_mins: number | null;
   consent: boolean;
 };
+
+// A client row WITHOUT any agency-only money columns. Used by the
+// portal so agency figures cannot be surfaced even by mistake.
+export type ClientPublic = Omit<Client, 'ad_spend_monthly'>;
