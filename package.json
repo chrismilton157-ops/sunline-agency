@@ -1,0 +1,19 @@
+{
+  "name": "sunline-agency",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Sunline — UK solar appointment-setting agency platform",
+  "scripts": {
+    "seed": "tsx scripts/seed.ts",
+    "verify:rls": "tsx scripts/verify-rls.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.0",
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0"
+  }
+}
