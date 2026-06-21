@@ -117,25 +117,62 @@ async function main() {
   const lCara  = leads.find((l) => l.name === 'Cara Daniels')!;
 
   console.log('→ Inserting appointments');
+  // A spread of historical appointments across Feb–Jun so Phase 2 charts
+  // and health badges have something meaningful to show. All bound to the
+  // three seeded leads — fine for an MVP demo; not a normalised model.
   const { error: aErr } = await admin.from('appointments').insert([
-    {
-      lead_id: lAlice.id, client_id: bright.id,
-      appt_date: '2026-06-10T15:00:00Z', setter: 'Maria',
-      outcome: 'sold', sale_value: 9800, replaced: false,
-      quality_rating: 'up', invoiced: true,
-    },
-    {
-      lead_id: lBob.id, client_id: bright.id,
-      appt_date: '2026-06-18T13:30:00Z', setter: 'Maria',
-      outcome: 'sat', sale_value: null, replaced: false,
-      quality_rating: 'up', invoiced: false,
-    },
-    {
-      lead_id: lCara.id, client_id: north.id,
-      appt_date: '2026-06-22T10:00:00Z', setter: 'James',
-      outcome: 'booked', sale_value: null, replaced: false,
-      invoiced: false,
-    },
+    // BrightRoof — Feb (1 sit, 1 sold)
+    { lead_id: lAlice.id, client_id: bright.id, appt_date: '2026-02-12T13:00:00Z',
+      setter: 'Maria', outcome: 'sold', sale_value: 8200, quality_rating: 'up', invoiced: true },
+    { lead_id: lBob.id,   client_id: bright.id, appt_date: '2026-02-24T15:30:00Z',
+      setter: 'Maria', outcome: 'sat',  sale_value: null, quality_rating: 'up', invoiced: true },
+    // BrightRoof — Mar (2 sits, 1 sold, 1 no_show)
+    { lead_id: lAlice.id, client_id: bright.id, appt_date: '2026-03-05T11:00:00Z',
+      setter: 'Maria', outcome: 'sat',  sale_value: null, quality_rating: 'up', invoiced: true },
+    { lead_id: lBob.id,   client_id: bright.id, appt_date: '2026-03-15T16:00:00Z',
+      setter: 'Maria', outcome: 'sold', sale_value: 10400, quality_rating: 'up', invoiced: true },
+    { lead_id: lAlice.id, client_id: bright.id, appt_date: '2026-03-22T10:00:00Z',
+      setter: 'Maria', outcome: 'no_show', sale_value: null, quality_rating: 'down',
+      quality_reason: 'wrong address', invoiced: false },
+    // BrightRoof — Apr (2 sits, 1 sold)
+    { lead_id: lBob.id,   client_id: bright.id, appt_date: '2026-04-08T14:00:00Z',
+      setter: 'Maria', outcome: 'sat',  sale_value: null, quality_rating: 'up', invoiced: true },
+    { lead_id: lAlice.id, client_id: bright.id, appt_date: '2026-04-19T11:30:00Z',
+      setter: 'Maria', outcome: 'sold', sale_value: 9100, quality_rating: 'up', invoiced: true },
+    // BrightRoof — May (2 sits, 1 sold)
+    { lead_id: lBob.id,   client_id: bright.id, appt_date: '2026-05-06T15:00:00Z',
+      setter: 'Maria', outcome: 'sold', sale_value: 8700, quality_rating: 'up', invoiced: true },
+    { lead_id: lAlice.id, client_id: bright.id, appt_date: '2026-05-21T12:00:00Z',
+      setter: 'Maria', outcome: 'sat',  sale_value: null, quality_rating: 'up', invoiced: true },
+    // BrightRoof — Jun (the original two: 1 sold, 1 sat)
+    { lead_id: lAlice.id, client_id: bright.id, appt_date: '2026-06-10T15:00:00Z',
+      setter: 'Maria', outcome: 'sold', sale_value: 9800, quality_rating: 'up', invoiced: true },
+    { lead_id: lBob.id,   client_id: bright.id, appt_date: '2026-06-18T13:30:00Z',
+      setter: 'Maria', outcome: 'sat',  sale_value: null, quality_rating: 'up', invoiced: false },
+
+    // Northwind — Feb (1 sit, no sale — reps-flag candidate later)
+    { lead_id: lCara.id, client_id: north.id, appt_date: '2026-02-18T14:00:00Z',
+      setter: 'James', outcome: 'sat',  sale_value: null, quality_rating: 'up', invoiced: true },
+    // Northwind — Mar (2 sits, 0 sold)
+    { lead_id: lCara.id, client_id: north.id, appt_date: '2026-03-09T11:00:00Z',
+      setter: 'James', outcome: 'sat',  sale_value: null, quality_rating: 'up', invoiced: true },
+    { lead_id: lCara.id, client_id: north.id, appt_date: '2026-03-24T15:00:00Z',
+      setter: 'James', outcome: 'sat',  sale_value: null, quality_rating: 'down',
+      quality_reason: 'lead unqualified', invoiced: true },
+    // Northwind — Apr (2 sits, 1 sold)
+    { lead_id: lCara.id, client_id: north.id, appt_date: '2026-04-12T13:00:00Z',
+      setter: 'James', outcome: 'sold', sale_value: 7400, quality_rating: 'up', invoiced: true },
+    { lead_id: lCara.id, client_id: north.id, appt_date: '2026-04-26T10:30:00Z',
+      setter: 'James', outcome: 'sat',  sale_value: null, quality_rating: 'up', invoiced: true },
+    // Northwind — May (2 sits, 0 sold — gap)
+    { lead_id: lCara.id, client_id: north.id, appt_date: '2026-05-10T12:00:00Z',
+      setter: 'James', outcome: 'sat',  sale_value: null, quality_rating: 'up', invoiced: true },
+    { lead_id: lCara.id, client_id: north.id, appt_date: '2026-05-23T16:30:00Z',
+      setter: 'James', outcome: 'no_show', sale_value: null, quality_rating: 'down',
+      quality_reason: 'wrong number', invoiced: false },
+    // Northwind — Jun (the original: 1 booked, upcoming)
+    { lead_id: lCara.id, client_id: north.id, appt_date: '2026-06-22T10:00:00Z',
+      setter: 'James', outcome: 'booked', sale_value: null, invoiced: false },
   ]);
   if (aErr) throw aErr;
 
