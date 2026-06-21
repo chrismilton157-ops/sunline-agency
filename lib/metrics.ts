@@ -1,4 +1,4 @@
-import type { Appointment, Client, Lead } from './types';
+import type { Appointment, Client, ClientPublic, Lead } from './types';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -365,3 +365,124 @@ export function flagReasons(appts: Appointment[]): { reason: string; count: numb
 
 // Default monthly overhead used across the app. Tweak in one place.
 export const MONTHLY_OVERHEAD = 1200;
+
+// ---------- Phase 3: client-facing helpers ----------
+//
+// The portal only ever sees a Client *without* ad_spend_monthly. These
+// helpers compute the metrics a client can see, without leaking any
+// agency-only figure (no margin, no overhead, no cost-per-sit-to-agency).
+
+// Industry benchmarks the portal compares against.
+export const INDUSTRY_SIT_RATE = 0.65;
+export const INDUSTRY_CLOSE_RATE = 0.28;
+
+const FORTY_EIGHT_HRS_MS = 48 * 60 * 60 * 1000;
+
+export type ClientFacingMetrics = {
+  client: ClientPublic;
+  monthsActive: number;
+
+  appointments: number;
+  occurred: number;
+  bookedPending: number;
+  sits: number;
+  sold: number;
+  noShows: number;
+
+  sitRate: number | null;
+  closeRate: number | null;
+  avgJobValue: number | null;
+  speedToLead: number | null;
+  qualityScore: number | null;
+
+  clientPaid: number;
+  costPerAppointment: number | null;
+  costPerSale: number | null;
+  revenueGenerated: number;
+  roi: number | null;
+
+  confirmationRate: number | null; // % of past appts confirmed within 48h before
+  pipelineValue: number;
+};
+
+export function clientFacingMetrics(
+  client: ClientPublic,
+  appts: Appointment[],
+  leads: Lead[],
+  now: Date = new Date(),
+): ClientFacingMetrics {
+  const ma = monthsActive(client.joined_at, now);
+
+  const occurred = appts.filter((a) => a.outcome !== 'booked');
+  const sitsList = appts.filter((a) => a.outcome === 'sat' || a.outcome === 'sold');
+  const soldList = appts.filter((a) => a.outcome === 'sold');
+  const noShows = appts.filter((a) => a.outcome === 'no_show').length;
+  const bookedPending = appts.filter((a) => a.outcome === 'booked').length;
+
+  const sits = sitsList.length;
+  const sold = soldList.length;
+
+  const sitRate = safe(sits, occurred.length);
+  const closeRate = safe(sold, sits);
+
+  const totalSaleValue = soldList.reduce((s, a) => s + (a.sale_value ?? 0), 0);
+  const avgJobValue = safe(totalSaleValue, sold);
+
+  const responseMins = leads
+    .map((l) => l.response_mins)
+    .filter((v): v is number => v != null);
+  const speedToLead = median(responseMins);
+
+  const ups = appts.filter((a) => a.quality_rating === 'up').length;
+  const downs = appts.filter((a) => a.quality_rating === 'down').length;
+  const qualityScore = safe(ups, ups + downs);
+
+  const clientPaid = client.retainer * ma + sits * client.per_sit_fee;
+  const costPerAppointment = safe(clientPaid, sits);
+  const costPerSale = safe(clientPaid, sold);
+  const revenueGenerated = totalSaleValue;
+  const roi = safe(revenueGenerated, clientPaid);
+
+  // Confirmation rate.
+  // Denominator: past appointments (the ones we *could* have confirmed by now).
+  // Numerator: those where confirmed_at exists AND is within 48h before appt_date.
+  const past = appts.filter(
+    (a) => new Date(a.appt_date).getTime() <= now.getTime(),
+  );
+  const confirmedOnTime = past.filter((a) => {
+    if (!a.confirmed_at) return false;
+    const apptT = new Date(a.appt_date).getTime();
+    const confT = new Date(a.confirmed_at).getTime();
+    return confT <= apptT && apptT - confT <= FORTY_EIGHT_HRS_MS;
+  }).length;
+  const confirmationRate = safe(confirmedOnTime, past.length);
+
+  // Pipeline value with industry fallback (never expose portfolio averages).
+  const sitR = sitRate ?? INDUSTRY_SIT_RATE;
+  const closeR = closeRate ?? INDUSTRY_CLOSE_RATE;
+  const avgJ = avgJobValue ?? 0;
+  const pipelineValue = bookedPending * sitR * closeR * avgJ;
+
+  return {
+    client,
+    monthsActive: ma,
+    appointments: appts.length,
+    occurred: occurred.length,
+    bookedPending,
+    sits,
+    sold,
+    noShows,
+    sitRate,
+    closeRate,
+    avgJobValue,
+    speedToLead,
+    qualityScore,
+    clientPaid,
+    costPerAppointment,
+    costPerSale,
+    revenueGenerated,
+    roi,
+    confirmationRate,
+    pipelineValue,
+  };
+}

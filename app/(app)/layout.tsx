@@ -9,6 +9,7 @@ export default async function AppLayout({
 }) {
   const { user, role } = await requireOwner();
   if (!user) redirect('/login');
+  if (role === 'client') redirect('/portal');
   if (role !== 'owner') redirect('/login?error=Owner+access+only');
 
   return (

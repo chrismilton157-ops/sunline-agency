@@ -84,6 +84,36 @@ async function main() {
       check('client cannot reassign an appointment to another tenant',
         !!upErr || (upData?.length ?? 0) === 0, { upErr, upData });
     }
+
+    // Phase 3 — column-level revoke: client must not read agency-only money columns.
+    const { error: adErr, data: adData } = await clientPortal
+      .from('clients')
+      .select('id, ad_spend_monthly');
+    check(
+      'client cannot read clients.ad_spend_monthly (column-level revoke)',
+      !!adErr || (adData ?? []).every((r: Record<string, unknown>) => !('ad_spend_monthly' in r)),
+      { adErr, adData },
+    );
+
+    const { error: csErr, data: csData } = await clientPortal
+      .from('campaigns')
+      .select('id, ad_spend');
+    check(
+      'client cannot read campaigns.ad_spend (column-level revoke)',
+      !!csErr || (csData ?? []).every((r: Record<string, unknown>) => !('ad_spend' in r)),
+      { csErr, csData },
+    );
+
+    // Phase 3 — confirmed_at is readable by the client on their own appointments.
+    const { data: confData, error: confErr } = await clientPortal
+      .from('appointments')
+      .select('id, confirmed_at')
+      .limit(1);
+    check(
+      'client can read confirmed_at on own appointments',
+      !confErr && (confData?.length ?? 0) > 0,
+      { confErr, confData },
+    );
   }
 
   if (failed > 0) {

@@ -15,7 +15,7 @@ export async function login(formData: FormData) {
     redirect(`/login?error=${encodeURIComponent(error.message)}`);
   }
 
-  // Verify the user is an owner — the agency app is owner-only.
+  // Route by role: owner → agency app; client → portal.
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -25,10 +25,7 @@ export async function login(formData: FormData) {
       .select('role')
       .eq('id', user.id)
       .single();
-    if (row?.role !== 'owner') {
-      await supabase.auth.signOut();
-      redirect('/login?error=This+sign-in+is+for+the+agency+owner.');
-    }
+    if (row?.role === 'client') redirect('/portal');
   }
 
   redirect('/overview');
