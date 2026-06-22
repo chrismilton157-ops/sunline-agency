@@ -32,7 +32,8 @@ export async function updateAppointmentOutcome(formData: FormData) {
     .eq('id', id);
   if (error) throw error;
 
-  revalidatePath('/portal');
+  // Revalidate the whole portal subtree so /results metrics update too.
+  revalidatePath('/portal', 'layout');
 }
 
 export async function updateAppointmentQuality(formData: FormData) {
@@ -53,5 +54,5 @@ export async function updateAppointmentQuality(formData: FormData) {
     .eq('id', id);
   if (error) throw error;
 
-  revalidatePath('/portal');
+  revalidatePath('/portal', 'layout');
 }
