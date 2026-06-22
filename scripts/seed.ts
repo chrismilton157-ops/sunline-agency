@@ -24,6 +24,10 @@ async function main() {
   await admin.from('appointments').delete().neq('id', '00000000-0000-0000-0000-000000000000');
   await admin.from('leads').delete().neq('id', '00000000-0000-0000-0000-000000000000');
   await admin.from('campaigns').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  // Phase 4: routing tables — cascade with clients, but wipe explicitly
+  // so the seed is idempotent even if the FK definition changes.
+  await admin.from('client_postcodes').delete().neq('postcode_prefix', '__sentinel__');
+  await admin.from('postcode_volume').delete().neq('postcode_prefix', '__sentinel__');
   await admin.from('clients').delete().neq('id', '00000000-0000-0000-0000-000000000000');
 
   console.log('→ Ensuring auth users exist');
@@ -43,6 +47,8 @@ async function main() {
         ad_spend_monthly: 900,
         status: 'active',
         joined_at: '2026-02-01',
+        weekly_promise: 12,
+        priority: 100,
       },
       {
         company: 'Northwind Energy',
@@ -53,6 +59,8 @@ async function main() {
         ad_spend_monthly: 1200,
         status: 'active',
         joined_at: '2026-01-15',
+        weekly_promise: 18,
+        priority: 100,
       },
     ])
     .select('id, company');
@@ -197,6 +205,36 @@ async function main() {
       setter: 'James', outcome: 'booked', sale_value: null, invoiced: false },
   ]);
   if (aErr) throw aErr;
+
+  console.log('→ Inserting routing config (Phase 4)');
+  // Postcode coverage. 'BR' is intentionally shared by both clients so the
+  // routing simulator and the over-promise warning have something to
+  // demonstrate. Each client has unique prefixes for their own region too.
+  const { error: pcErr } = await admin.from('client_postcodes').insert([
+    { client_id: bright.id, postcode_prefix: 'GU' }, // Guildford
+    { client_id: bright.id, postcode_prefix: 'KT' }, // Kingston
+    { client_id: bright.id, postcode_prefix: 'RG' }, // Reading
+    { client_id: bright.id, postcode_prefix: 'BR' }, // shared
+    { client_id: north.id,  postcode_prefix: 'M' },  // Manchester
+    { client_id: north.id,  postcode_prefix: 'BL' }, // Bolton
+    { client_id: north.id,  postcode_prefix: 'OL' }, // Oldham
+    { client_id: north.id,  postcode_prefix: 'BR' }, // shared
+  ]);
+  if (pcErr) throw pcErr;
+
+  // Realistic-ish weekly volume per prefix. 'BR' is deliberately set low
+  // so that the sum of BrightRoof (12) + Northwind (18) promises = 30
+  // dwarfs BR's typical 10 → over-promise warning triggers.
+  const { error: pvErr } = await admin.from('postcode_volume').insert([
+    { postcode_prefix: 'GU', typical_weekly_leads: 14 },
+    { postcode_prefix: 'KT', typical_weekly_leads: 9 },
+    { postcode_prefix: 'RG', typical_weekly_leads: 12 },
+    { postcode_prefix: 'BR', typical_weekly_leads: 10 },
+    { postcode_prefix: 'M',  typical_weekly_leads: 22 },
+    { postcode_prefix: 'BL', typical_weekly_leads: 8 },
+    { postcode_prefix: 'OL', typical_weekly_leads: 7 },
+  ]);
+  if (pvErr) throw pvErr;
 
   console.log('→ Inserting invoices');
   const { error: iErr } = await admin.from('invoices').insert([

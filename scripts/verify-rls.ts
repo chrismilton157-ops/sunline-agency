@@ -114,6 +114,51 @@ async function main() {
       !confErr && (confData?.length ?? 0) > 0,
       { confErr, confData },
     );
+
+    // Phase 4 — routing config is owner-only at every layer.
+    const { data: pcData, error: pcErr } = await clientPortal
+      .from('client_postcodes')
+      .select('client_id, postcode_prefix');
+    check(
+      'client cannot read any client_postcodes (RLS denies all rows)',
+      !!pcErr || (pcData ?? []).length === 0,
+      { pcErr, pcData },
+    );
+
+    const { data: pvData, error: pvErr } = await clientPortal
+      .from('postcode_volume')
+      .select('postcode_prefix, typical_weekly_leads');
+    check(
+      'client cannot read postcode_volume (RLS denies all rows)',
+      !!pvErr || (pvData ?? []).length === 0,
+      { pvErr, pvData },
+    );
+
+    // weekly_promise / priority must not be SELECTable by authenticated
+    // (they are NOT in the safe-column grant).
+    const { data: wpData, error: wpErr } = await clientPortal
+      .from('clients')
+      .select('id, weekly_promise');
+    check(
+      'client cannot read clients.weekly_promise (column-level revoke)',
+      !!wpErr ||
+        (wpData ?? []).every(
+          (r: Record<string, unknown>) => !('weekly_promise' in r),
+        ),
+      { wpErr, wpData },
+    );
+
+    const { data: prData, error: prErr } = await clientPortal
+      .from('clients')
+      .select('id, priority');
+    check(
+      'client cannot read clients.priority (column-level revoke)',
+      !!prErr ||
+        (prData ?? []).every(
+          (r: Record<string, unknown>) => !('priority' in r),
+        ),
+      { prErr, prData },
+    );
   }
 
   if (failed > 0) {

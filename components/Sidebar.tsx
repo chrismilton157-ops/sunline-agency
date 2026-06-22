@@ -6,6 +6,7 @@ import { logout } from '@/app/login/actions';
 const items = [
   { href: '/overview', label: 'Overview' },
   { href: '/clients', label: 'Clients' },
+  { href: '/routing', label: 'Routing' },
   { href: '/log', label: 'Log activity' },
 ];
 
