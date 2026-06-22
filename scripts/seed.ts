@@ -93,29 +93,39 @@ async function main() {
   const northCamp = campaigns.find((c) => c.client_id === north.id)!;
 
   console.log('→ Inserting leads');
+  // Phase 5: backfill consent_at / consent_source / routing_rule_fired
+  // / postcode on historical seed leads so the agency Leads screen has
+  // sensible rows from the moment the migration lands.
+  const now = new Date().toISOString();
   const { data: leads, error: lErr } = await admin
     .from('leads')
     .insert([
       {
         client_id: bright.id, campaign_id: brightCamp.id,
         name: 'Alice Brown', phone: '+447700900001', email: 'alice@example.co.uk',
-        address: '12 Oak Lane, Guildford', monthly_bill: 180,
+        address: '12 Oak Lane, Guildford', postcode: 'GU2 8AA', monthly_bill: 180,
         is_homeowner: true, bill_payer: true, roof_suitable: true, finance_interest: true,
-        consent: true, status: 'booked', response_mins: 4,
+        consent: true, consent_at: now, consent_source: 'seed_phase1',
+        routing_rule_fired: 'most_behind',
+        status: 'booked', response_mins: 4,
       },
       {
         client_id: bright.id, campaign_id: brightCamp.id,
         name: 'Bob Carter', phone: '+447700900002', email: 'bob@example.co.uk',
-        address: '7 Elm Road, Woking', monthly_bill: 140,
+        address: '7 Elm Road, Woking', postcode: 'KT14 6AA', monthly_bill: 140,
         is_homeowner: true, bill_payer: true, roof_suitable: true, finance_interest: false,
-        consent: true, status: 'booked', response_mins: 9,
+        consent: true, consent_at: now, consent_source: 'seed_phase1',
+        routing_rule_fired: 'most_behind',
+        status: 'booked', response_mins: 9,
       },
       {
         client_id: north.id, campaign_id: northCamp.id,
         name: 'Cara Daniels', phone: '+447700900003', email: 'cara@example.co.uk',
-        address: '22 High St, Manchester', monthly_bill: 210,
+        address: '22 High St, Manchester', postcode: 'M1 2AB', monthly_bill: 210,
         is_homeowner: true, bill_payer: true, roof_suitable: true, finance_interest: true,
-        consent: true, status: 'booked', response_mins: 3,
+        consent: true, consent_at: now, consent_source: 'seed_phase1',
+        routing_rule_fired: 'most_behind',
+        status: 'booked', response_mins: 3,
       },
     ])
     .select('id, client_id, name');

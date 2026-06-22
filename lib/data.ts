@@ -280,3 +280,42 @@ export async function loadRoutingState(now: Date = new Date()) {
     weekStart,
   };
 }
+
+// ---------- Phase 5: owner-side leads ----------
+//
+// Fetches every lead with full agency-only metadata (consent_at,
+// routing_rule_fired, notes, etc). Uses the service-role admin client
+// because those columns aren't in the column-level SELECT grant set up
+// in 0006. Owner-only callers — middleware + layout guards ensure that.
+
+import type { LeadOwner } from './types';
+
+export async function loadOwnerLeads(): Promise<{
+  leads: LeadOwner[];
+  clientsById: Map<string, string>;
+}> {
+  const admin = getServerAdmin();
+  const [leadsRes, clientsRes] = await Promise.all([
+    admin
+      .from('leads')
+      .select(
+        `id, client_id, campaign_id, name, phone, email, address, postcode,
+         monthly_bill, is_homeowner, bill_payer, roof_suitable, finance_interest,
+         consent, status, response_mins, created_at,
+         notes, campaign_source, consent_at, consent_source,
+         routing_rule_fired, data_retention_until`,
+      )
+      .order('created_at', { ascending: false }),
+    admin.from('clients').select('id, company'),
+  ]);
+  if (leadsRes.error) throw leadsRes.error;
+  if (clientsRes.error) throw clientsRes.error;
+
+  const clientsById = new Map<string, string>();
+  for (const c of clientsRes.data ?? []) clientsById.set(c.id, c.company);
+
+  return {
+    leads: (leadsRes.data ?? []) as LeadOwner[],
+    clientsById,
+  };
+}

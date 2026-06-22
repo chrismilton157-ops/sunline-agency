@@ -159,6 +159,30 @@ async function main() {
         ),
       { prErr, prData },
     );
+
+    // Phase 5 — agency-only lead metadata is unreadable by the
+    // authenticated role (column-level revoke in migration 0006).
+    const hiddenLeadCols = [
+      'notes',
+      'campaign_source',
+      'consent_at',
+      'consent_source',
+      'routing_rule_fired',
+      'data_retention_until',
+    ];
+    for (const col of hiddenLeadCols) {
+      const res = await clientPortal
+        .from('leads')
+        .select(`id, ${col}` as '*')
+        .limit(1);
+      const error = res.error;
+      const data = (res.data ?? []) as Record<string, unknown>[];
+      check(
+        `client cannot read leads.${col} (column-level revoke)`,
+        !!error || data.every((r) => !(col in r)),
+        { error, data },
+      );
+    }
   }
 
   if (failed > 0) {
