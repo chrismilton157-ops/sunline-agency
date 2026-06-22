@@ -16,11 +16,19 @@ export default async function PortalBillingPage() {
 
   const now = new Date();
   const ym = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
-  const sitsThisMonth = appointments.filter(
-    (a) => (a.outcome === 'sat' || a.outcome === 'sold') && a.appt_date.startsWith(ym),
+  // Per-sit fee charged for every qualified confirmed appointment that
+  // occurred this month — sits, sales, AND no-shows. Cancellations
+  // before the day are not billable (they never appear here as
+  // appt_date for an outcome other than 'booked').
+  const billableThisMonth = appointments.filter(
+    (a) =>
+      (a.outcome === 'sat' ||
+        a.outcome === 'sold' ||
+        a.outcome === 'no_show') &&
+      a.appt_date.startsWith(ym),
   );
-  const thisPeriodSitFees = sitsThisMonth.length * client.per_sit_fee;
-  const invoiceTotal = client.retainer + thisPeriodSitFees;
+  const thisPeriodPerSitFees = billableThisMonth.length * client.per_sit_fee;
+  const invoiceTotal = client.retainer + thisPeriodPerSitFees;
 
   // Past invoices (excluding current month if present)
   const pastInvoices = invoices.filter((i) => i.period !== ym);
@@ -48,9 +56,9 @@ export default async function PortalBillingPage() {
           </div>
           <div className="flex justify-between">
             <dt className="text-muted">
-              Sits this month ({sitsThisMonth.length} × {fmtMoney2(client.per_sit_fee)})
+              Qualified confirmed appointments ({billableThisMonth.length} × {fmtMoney2(client.per_sit_fee)})
             </dt>
-            <dd className="num">{fmtMoney2(thisPeriodSitFees)}</dd>
+            <dd className="num">{fmtMoney2(thisPeriodPerSitFees)}</dd>
           </div>
           <div className="flex justify-between pt-3 border-t border-hairline font-medium">
             <dt>Your invoice</dt>
@@ -58,8 +66,9 @@ export default async function PortalBillingPage() {
           </div>
         </dl>
         <p className="text-xs text-muted mt-5">
-          All sits and no-shows are billable. Booked appointments that don&apos;t
-          occur (e.g. cancelled before the day) don&apos;t count.
+          Qualified confirmed appointments are billable whether or not the
+          homeowner shows on the day — both sits and no-shows count. Bookings
+          cancelled before the day don&apos;t.
         </p>
       </section>
 
