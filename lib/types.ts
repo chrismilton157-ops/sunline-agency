@@ -12,6 +12,8 @@ export type Client = {
   ad_spend_monthly: number;
   status: ClientStatus;
   joined_at: string;
+  weekly_promise: number;
+  priority: number;
 };
 
 export type Appointment = {
@@ -37,6 +39,20 @@ export type Lead = {
   consent: boolean;
 };
 
-// A client row WITHOUT any agency-only money columns. Used by the
-// portal so agency figures cannot be surfaced even by mistake.
-export type ClientPublic = Omit<Client, 'ad_spend_monthly'>;
+// A client row WITHOUT any agency-only column. Used by the portal so
+// agency figures (ad spend, routing config) cannot be surfaced even by
+// mistake. Mirrors the explicit-column SELECT grant in migration 0004.
+export type ClientPublic = Omit<
+  Client,
+  'ad_spend_monthly' | 'weekly_promise' | 'priority'
+>;
+
+export type ClientPostcode = {
+  client_id: string;
+  postcode_prefix: string;
+};
+
+export type PostcodeVolume = {
+  postcode_prefix: string;
+  typical_weekly_leads: number;
+};
