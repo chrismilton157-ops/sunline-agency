@@ -1,11 +1,19 @@
 import { loadOwnerLeads } from '@/lib/data';
 import { smsConfigured } from '@/lib/sms';
 import { fmtDateTime, fmtMoney } from '@/lib/format';
+import { DISQUAL_LABELS, parseDqRule } from '@/lib/qualifying';
 import { deleteLead } from './actions';
 
 export const dynamic = 'force-dynamic';
 
 const ruleLabel = (rule: string | null) => {
+  const dq = parseDqRule(rule);
+  if (dq) {
+    return {
+      text: `Disqualified · ${DISQUAL_LABELS[dq]}`,
+      cls: 'bg-bad/10 text-bad border-bad/30',
+    };
+  }
   switch (rule) {
     case 'starvation':
       return { text: 'Rule 1 · Starvation', cls: 'bg-bad/10 text-bad border-bad/30' };
@@ -36,7 +44,11 @@ function YesNoChip({ label, value }: { label: string; value: boolean | null }) {
 
 export default async function LeadsPage() {
   const { leads, clientsById } = await loadOwnerLeads();
-  const unassigned = leads.filter((l) => !l.client_id).length;
+  const disqualified = leads.filter((l) => l.status === 'disqualified').length;
+  // "Unassigned" now means: not DQ, but no client_id (postcode uncovered).
+  const unassigned = leads.filter(
+    (l) => !l.client_id && l.status !== 'disqualified',
+  ).length;
   const noConsent = leads.filter((l) => !l.consent).length;
 
   return (
@@ -56,6 +68,11 @@ export default async function LeadsPage() {
           {unassigned > 0 && (
             <span className="num px-2 py-1 rounded-md bg-bad/10 text-bad border border-bad/30">
               {unassigned} unassigned
+            </span>
+          )}
+          {disqualified > 0 && (
+            <span className="num px-2 py-1 rounded-md bg-muted/10 text-muted border border-hairline">
+              {disqualified} disqualified
             </span>
           )}
           {noConsent > 0 && (
@@ -134,6 +151,10 @@ export default async function LeadsPage() {
                     {l.client_id ? (
                       <div className="text-sm font-medium">
                         {clientsById.get(l.client_id) ?? '(deleted)'}
+                      </div>
+                    ) : l.status === 'disqualified' ? (
+                      <div className="text-muted text-xs font-medium">
+                        Disqualified
                       </div>
                     ) : (
                       <div className="text-bad text-xs font-medium">
