@@ -30,13 +30,39 @@ export type Appointment = {
   confirmed_at: string | null;
 };
 
+export type LeadStatus = 'new' | 'contacted' | 'qualified' | 'booked' | 'disqualified';
+
+// The client-portal-safe Lead — only fields in the column SELECT grant
+// (migration 0006). All agency-only metadata is on `LeadOwner` below.
 export type Lead = {
   id: string;
-  client_id: string;
+  client_id: string | null; // Phase 5: nullable for unassigned leads
+  campaign_id: string | null;
   name: string | null;
+  phone: string | null;
+  email: string | null;
   address: string | null;
-  response_mins: number | null;
+  postcode: string | null;
+  monthly_bill: number | null;
+  is_homeowner: boolean | null;
+  bill_payer: boolean | null;
+  roof_suitable: boolean | null;
+  finance_interest: boolean | null;
   consent: boolean;
+  status: LeadStatus;
+  response_mins: number | null;
+  created_at: string;
+};
+
+// Owner-only view — adds the agency-only metadata that the column-level
+// grant in 0006 keeps out of the authenticated role.
+export type LeadOwner = Lead & {
+  notes: string | null;
+  campaign_source: string | null;
+  consent_at: string | null;
+  consent_source: string | null;
+  routing_rule_fired: string | null;
+  data_retention_until: string | null;
 };
 
 // A client row WITHOUT any agency-only column. Used by the portal so
