@@ -23,6 +23,7 @@ async function main() {
   await admin.from('invoices').delete().neq('id', '00000000-0000-0000-0000-000000000000');
   await admin.from('appointments').delete().neq('id', '00000000-0000-0000-0000-000000000000');
   await admin.from('leads').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  await admin.from('campaign_spend').delete().neq('id', '00000000-0000-0000-0000-000000000000');
   await admin.from('campaigns').delete().neq('id', '00000000-0000-0000-0000-000000000000');
   // Phase 4: routing tables — cascade with clients, but wipe explicitly
   // so the seed is idempotent even if the FK definition changes.
@@ -83,16 +84,24 @@ async function main() {
   if (uErr) throw uErr;
 
   console.log('→ Inserting campaigns');
+  // Phase 7: a regional / shared campaign has client_id = NULL. Leads it
+  // generates are routed to multiple clients via Phase 4 routing; the
+  // spend is then allocated by lead share in lib/allocation.ts.
   const { data: campaigns, error: campErr } = await admin
     .from('campaigns')
     .insert([
       { client_id: bright.id, name: 'BrightRoof — Surrey Meta', platform: 'meta', ad_spend: 1800 },
       { client_id: north.id, name: 'Northwind — Manchester Google', platform: 'google', ad_spend: 2400 },
+      // Shared regional campaign covering 'BR' postcodes — both seeded
+      // clients have 'BR' in their coverage so leads from it route to
+      // whichever client the routing engine picks.
+      { client_id: null, name: 'Shared — Bristol BR Meta', platform: 'meta', ad_spend: 0 },
     ])
-    .select('id, client_id');
+    .select('id, client_id, name');
   if (campErr || !campaigns) throw campErr;
   const brightCamp = campaigns.find((c) => c.client_id === bright.id)!;
   const northCamp = campaigns.find((c) => c.client_id === north.id)!;
+  const sharedCamp = campaigns.find((c) => c.client_id === null)!;
 
   console.log('→ Inserting leads');
   // Phase 5: backfill consent_at / consent_source / routing_rule_fired
@@ -128,6 +137,56 @@ async function main() {
         consent: true, consent_at: now, consent_source: 'seed_phase1',
         routing_rule_fired: 'most_behind',
         status: 'booked', response_mins: 3,
+      },
+      // Phase 7: leads from the SHARED 'BR' regional campaign — three
+      // routed to BrightRoof, two to Northwind in the current month.
+      // The 60/40 split gives a clear demo of the allocation rule
+      // (whatever spend we record on the shared campaign will land
+      // 60% on BrightRoof, 40% on Northwind).
+      {
+        client_id: bright.id, campaign_id: sharedCamp.id,
+        name: 'Daisy Evans', phone: '+447700900004', email: 'daisy@example.co.uk',
+        address: '4 Bridge St, Bromley', postcode: 'BR1 1AA', monthly_bill: 165,
+        is_homeowner: true, bill_payer: true, roof_suitable: true, finance_interest: true,
+        consent: true, consent_at: now, consent_source: 'seed_phase7',
+        routing_rule_fired: 'round_robin',
+        status: 'new', response_mins: 6,
+      },
+      {
+        client_id: bright.id, campaign_id: sharedCamp.id,
+        name: 'Eli Foster', phone: '+447700900005', email: 'eli@example.co.uk',
+        address: '11 Park Rd, Bromley', postcode: 'BR2 7BB', monthly_bill: 150,
+        is_homeowner: true, bill_payer: true, roof_suitable: true, finance_interest: false,
+        consent: true, consent_at: now, consent_source: 'seed_phase7',
+        routing_rule_fired: 'most_behind',
+        status: 'new', response_mins: 4,
+      },
+      {
+        client_id: bright.id, campaign_id: sharedCamp.id,
+        name: 'Fern Gould', phone: '+447700900006', email: 'fern@example.co.uk',
+        address: '88 Elm Ave, Bromley', postcode: 'BR3 4CC', monthly_bill: 195,
+        is_homeowner: true, bill_payer: true, roof_suitable: true, finance_interest: true,
+        consent: true, consent_at: now, consent_source: 'seed_phase7',
+        routing_rule_fired: 'round_robin',
+        status: 'new', response_mins: 7,
+      },
+      {
+        client_id: north.id, campaign_id: sharedCamp.id,
+        name: 'Greg Hayes', phone: '+447700900007', email: 'greg@example.co.uk',
+        address: '2 Lime Cl, Bromley', postcode: 'BR5 9DD', monthly_bill: 175,
+        is_homeowner: true, bill_payer: true, roof_suitable: true, finance_interest: true,
+        consent: true, consent_at: now, consent_source: 'seed_phase7',
+        routing_rule_fired: 'starvation',
+        status: 'new', response_mins: 5,
+      },
+      {
+        client_id: north.id, campaign_id: sharedCamp.id,
+        name: 'Hana Irving', phone: '+447700900008', email: 'hana@example.co.uk',
+        address: '17 Vine Way, Bromley', postcode: 'BR6 2EE', monthly_bill: 130,
+        is_homeowner: true, bill_payer: true, roof_suitable: false, finance_interest: true,
+        consent: true, consent_at: now, consent_source: 'seed_phase7',
+        routing_rule_fired: 'newest_client',
+        status: 'new', response_mins: 9,
       },
     ])
     .select('id, client_id, name');
@@ -254,8 +313,10 @@ async function main() {
   // + 20% markup. amount/paid stay populated for legacy queries.
   //
   //   BrightRoof — 2026-05: ad_spend 900 × 1.20 = 1080  + 2 appts × £75 = 150 → 1230
-  //   BrightRoof — 2026-06: same shape, issued not paid
   //   Northwind  — 2026-05: ad_spend 1200 × 1.20 = 1440 + 2 appts × £80 = 160 → 1600
+  //
+  // 2026-06 is INTENTIONALLY left empty so the Phase 7 demo flow can
+  // generate it from scratch using the new shared-campaign allocation.
   const { error: iErr } = await admin.from('invoices').insert([
     {
       client_id: bright.id, period: '2026-05',
@@ -264,14 +325,6 @@ async function main() {
       ad_spend_raw: 900, management_markup_pct_snapshot: 20,
       issued_at: '2026-06-01T09:00:00Z', paid_at: '2026-06-08T12:00:00Z',
       amount: 1230, paid: true,
-    },
-    {
-      client_id: bright.id, period: '2026-06',
-      advertising_management: 1080, appointment_count: 2, appointment_fees: 150,
-      total: 1230, status: 'issued', per_sit_fee_snapshot: 75,
-      ad_spend_raw: 900, management_markup_pct_snapshot: 20,
-      issued_at: '2026-07-01T09:00:00Z', paid_at: null,
-      amount: 1230, paid: false,
     },
     {
       client_id: north.id, period: '2026-05',
@@ -283,6 +336,16 @@ async function main() {
     },
   ]);
   if (iErr) throw iErr;
+
+  console.log('→ Inserting historical campaign spend (Phase 7)');
+  // One past-period spend row on the shared regional campaign so the RLS
+  // check has something concrete to deny when run as a client. The owner
+  // demo flow will record fresh spend for the current month via the
+  // /allocation UI — that's the path the user tests.
+  const { error: csErr } = await admin.from('campaign_spend').insert([
+    { campaign_id: sharedCamp.id, period: '2026-05', amount: 0 },
+  ]);
+  if (csErr) throw csErr;
 
   console.log('✓ Seed complete');
   console.log(`  owner login   → ${ownerEmail}`);

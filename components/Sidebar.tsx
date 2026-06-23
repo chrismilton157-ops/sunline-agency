@@ -9,6 +9,7 @@ const items = [
   { href: '/routing', label: 'Routing' },
   { href: '/leads', label: 'Leads' },
   { href: '/billing', label: 'Billing' },
+  { href: '/allocation', label: 'Allocation' },
   { href: '/attribution', label: 'Attribution' },
   { href: '/log', label: 'Log activity' },
 ];

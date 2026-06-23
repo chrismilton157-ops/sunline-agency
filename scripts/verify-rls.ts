@@ -223,6 +223,46 @@ async function main() {
       !resAm.error,
       { error: resAm.error, data: resAm.data },
     );
+
+    // Phase 7 — campaign_spend (per-campaign monthly ad spend) is the
+    // raw input to the cost-allocation split. It is agency-only at every
+    // layer: RLS denies all rows AND the table-level SELECT was revoked
+    // from the authenticated role in migration 0008.
+    const resCs = await clientPortal
+      .from('campaign_spend')
+      .select('campaign_id, period, amount');
+    check(
+      'client cannot read any campaign_spend rows',
+      !!resCs.error || (resCs.data ?? []).length === 0,
+      { error: resCs.error, data: resCs.data },
+    );
+
+    // Phase 7 — regional / shared campaigns have client_id IS NULL and
+    // therefore never match `campaigns_client_read_own`. The client must
+    // not see any campaign that isn't theirs.
+    const { data: allCampaigns } = await clientPortal
+      .from('campaigns')
+      .select('id, client_id');
+    check(
+      'client only sees their own (non-regional) campaigns',
+      (allCampaigns ?? []).every((c) => c.client_id === bright.id) &&
+        (allCampaigns?.length ?? 0) > 0,
+      allCampaigns,
+    );
+
+    // Phase 7 — even though leads carry a campaign_id, a client must not
+    // see another client's leads (already covered above, restate as the
+    // allocation-relevant version: leads from a shared regional campaign
+    // that were routed to Northwind stay invisible to BrightRoof).
+    const { data: leakLeads } = await clientPortal
+      .from('leads')
+      .select('id, client_id, campaign_id')
+      .neq('client_id', bright.id);
+    check(
+      "client cannot read another tenant's leads from a shared campaign",
+      (leakLeads ?? []).length === 0,
+      leakLeads,
+    );
   }
 
   if (failed > 0) {
