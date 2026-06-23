@@ -2,33 +2,46 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { submitLead } from '@/app/apply/actions';
+import { BILL_BANDS, type BillBandKey } from '@/lib/qualifying';
 
-// Multi-step version of /apply. Data shape, server action, and consent
-// rules are IDENTICAL to the previous single-page form — only the UX
-// differs. Form submits via the existing `submitLead` server action; all
-// answered fields are mirrored to hidden inputs so the FormData the
-// server receives is exactly what it received before.
+// Phase 5b multi-step apply form.
+//
+// UI-only — same FormData shape lands at the existing submitLead server
+// action. The form mirrors every answer into hidden inputs so the
+// server contract doesn't change.
+//
+// Disqualification rules live in lib/qualifying.ts and run server-side
+// only. The homeowner always sees the same neutral thank-you, regardless
+// of whether their lead gets routed, gets quietly disqualified, or has
+// no postcode coverage.
+
+type YN = '' | 'yes' | 'no';
 
 type Answers = {
   postcode: string;
-  is_homeowner: '' | 'yes' | 'no';
-  bill_payer: '' | 'yes' | 'no';
-  monthly_bill: string;
-  roof_suitable: '' | 'yes' | 'no';
-  finance_interest: '' | 'yes' | 'no';
+  is_homeowner: YN;
+  bill_band: '' | BillBandKey;
+  bill_payer: YN;
+  roof_suitable: YN;
+  finance_interest: YN;
   address: string;
   name: string;
   phone: string;
   email: string;
-  notes: string;
   consent: boolean;
 };
 
 const TOTAL_STEPS = 10;
 
-// Same validation rules as lib/leads.ts — checked client-side too so the
-// user can't advance past a step with bad input. The server is still the
-// source of truth.
+// Front-loaded progress: huge jump on the first answer, smaller as the
+// homeowner nears the end, 100% only when they tick consent. Indexed by
+// the CURRENT step (0..9) — i.e. the value shown WHILE that step is on
+// screen.
+const PROGRESS_BY_STEP = [5, 30, 45, 55, 65, 73, 80, 86, 92, 97];
+
+// Same validation rules as lib/leads.ts — checked client-side so the
+// user can't tap-advance with bad input. The server is still the source
+// of truth.
 const UK_POSTCODE = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i;
 const UK_PHONE = /^(?:\+?44|0)\s?\d(?:[\s\d]){8,11}$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -44,15 +57,14 @@ export function ApplyForm({
   const [a, setA] = useState<Answers>({
     postcode: '',
     is_homeowner: '',
+    bill_band: '',
     bill_payer: '',
-    monthly_bill: '',
     roof_suitable: '',
     finance_interest: '',
     address: '',
     name: '',
     phone: '',
     email: '',
-    notes: '',
     consent: false,
   });
 
@@ -62,15 +74,10 @@ export function ApplyForm({
   const next = () => setStep((s) => Math.min(TOTAL_STEPS - 1, s + 1));
   const back = () => setStep((s) => Math.max(0, s - 1));
 
-  // Yes/No picker auto-advances. Wrap in setTimeout so React commits the
-  // state update before the step transitions — gives a beat of visual
-  // feedback on the selected button.
-  const pickYesNo = (
-    field: 'is_homeowner' | 'bill_payer' | 'roof_suitable' | 'finance_interest',
-    value: 'yes' | 'no',
-  ) => {
+  // Any tappable choice (Yes/No or bill band) advances immediately.
+  const pickAndAdvance = <K extends keyof Answers>(field: K, value: Answers[K]) => {
     set(field, value);
-    setTimeout(next, 140);
+    next();
   };
 
   const valid = (s: number): boolean => {
@@ -80,12 +87,9 @@ export function ApplyForm({
       case 1:
         return a.is_homeowner !== '';
       case 2:
-        return a.bill_payer !== '';
+        return a.bill_band !== '';
       case 3:
-        // Monthly bill is optional — empty is OK, but if filled, must be sane.
-        if (a.monthly_bill === '') return true;
-        const n = Number(a.monthly_bill);
-        return Number.isFinite(n) && n >= 0 && n <= 10000;
+        return a.bill_payer !== '';
       case 4:
         return a.roof_suitable !== '';
       case 5:
@@ -95,7 +99,11 @@ export function ApplyForm({
       case 7:
         return a.name.trim().length > 1;
       case 8:
-        return UK_PHONE.test(a.phone.trim()) && EMAIL.test(a.email.trim());
+        // Phone required, email optional but format-valid if filled.
+        return (
+          UK_PHONE.test(a.phone.trim()) &&
+          (a.email.trim() === '' || EMAIL.test(a.email.trim()))
+        );
       case 9:
         return a.consent;
       default:
@@ -103,48 +111,44 @@ export function ApplyForm({
     }
   };
 
-  // Friendly progress label — feels like progress without naming numbers.
+  // Progress: front-loaded, hits 100% only when consent is ticked.
+  const progressPct =
+    step === 9 && a.consent ? 100 : PROGRESS_BY_STEP[step] ?? 100;
   const progressLabel =
     step <= 2
       ? 'Quick start'
       : step <= 5
         ? 'A few quick questions'
         : step <= 8
-          ? 'How to reach you'
-          : 'Almost there';
-  const progressPct = ((step + 1) / TOTAL_STEPS) * 100;
+          ? 'Almost there'
+          : 'Final step';
 
-  // Focus management: when the step changes, move focus to the step's
-  // first interactive element. Each step root carries data-autofocus.
+  // Auto-focus the step's primary control whenever the step changes.
   const stepRoot = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    const el = stepRoot.current?.querySelector<HTMLElement>(
-      '[data-autofocus]',
-    );
+    const el = stepRoot.current?.querySelector<HTMLElement>('[data-autofocus]');
     el?.focus();
   }, [step]);
 
   return (
     <form action={submitLead} className="space-y-6">
-      {/* All answers are mirrored to hidden inputs — the FormData the
-          server action receives is identical to the old long form. The
-          consent hidden is rendered ONLY when checked, so unchecked
-          consent never sends `on`. */}
+      {/* Mirror every answer to a hidden input so the server FormData
+          contract is unchanged. The consent hidden is rendered ONLY
+          when the box is checked — unchecked consent cannot send `on`. */}
       <input type="hidden" name="campaign_source" value={campaign} />
       <input type="hidden" name="postcode" value={a.postcode} />
       <input type="hidden" name="is_homeowner" value={a.is_homeowner} />
+      <input type="hidden" name="bill_band" value={a.bill_band} />
       <input type="hidden" name="bill_payer" value={a.bill_payer} />
-      <input type="hidden" name="monthly_bill" value={a.monthly_bill} />
       <input type="hidden" name="roof_suitable" value={a.roof_suitable} />
       <input type="hidden" name="finance_interest" value={a.finance_interest} />
       <input type="hidden" name="address" value={a.address} />
       <input type="hidden" name="name" value={a.name} />
       <input type="hidden" name="phone" value={a.phone} />
       <input type="hidden" name="email" value={a.email} />
-      <input type="hidden" name="notes" value={a.notes} />
       {a.consent && <input type="hidden" name="consent" value="on" />}
 
-      {/* Progress bar — no count, just a filling bar with a soft label. */}
+      {/* Progress bar */}
       <div>
         <div className="flex items-baseline justify-between mb-2">
           <span className="text-xs font-medium uppercase tracking-wide text-muted">
@@ -162,18 +166,17 @@ export function ApplyForm({
         </div>
         <div className="h-1.5 bg-hairline/50 rounded-full overflow-hidden">
           <div
-            className="h-full bg-amber transition-all duration-300 ease-out"
+            className="h-full bg-amber transition-all duration-500 ease-out"
             style={{ width: `${progressPct}%` }}
           />
         </div>
       </div>
 
-      {/* Step content. `key={step}` forces a remount so the step-in
-          animation plays each transition. */}
+      {/* Step content — key={step} forces a remount so step-in animates. */}
       <div
         key={step}
         ref={stepRoot}
-        className="step-in card p-5 md:p-7 min-h-[260px] flex flex-col"
+        className="step-in card p-5 md:p-7 min-h-[280px] flex flex-col"
       >
         {step === 0 && (
           <TextStep
@@ -181,13 +184,15 @@ export function ApplyForm({
             hint="So we can match you with a local installer."
             value={a.postcode}
             placeholder="GU2 8AA"
-            inputClass="num uppercase"
+            inputClass="num uppercase tracking-wide"
             autoComplete="postal-code"
-            inputMode="text"
+            autoCapitalize="characters"
             onChange={(v) => set('postcode', v.toUpperCase())}
             onNext={() => valid(0) && next()}
             canAdvance={valid(0)}
-            error={!a.postcode || valid(0) ? null : 'Enter a valid UK postcode.'}
+            error={
+              a.postcode && !valid(0) ? 'Enter a valid UK postcode.' : null
+            }
           />
         )}
 
@@ -196,53 +201,43 @@ export function ApplyForm({
             label="Do you own your home?"
             hint="Owner-occupiers get the best quotes."
             value={a.is_homeowner}
-            onPick={(v) => pickYesNo('is_homeowner', v)}
+            onPick={(v) => pickAndAdvance('is_homeowner', v)}
           />
         )}
 
         {step === 2 && (
-          <YesNoStep
-            label="Are you the bill payer or decision maker?"
-            hint="Helps the installer have a useful first conversation."
-            value={a.bill_payer}
-            onPick={(v) => pickYesNo('bill_payer', v)}
+          <BandStep
+            label="Roughly, your monthly electricity bill?"
+            hint="A rough band is fine."
+            value={a.bill_band}
+            onPick={(v) => pickAndAdvance('bill_band', v)}
           />
         )}
 
         {step === 3 && (
-          <TextStep
-            label="Roughly, your monthly electricity bill?"
-            hint="A rough number is fine — skip if you'd rather not say."
-            value={a.monthly_bill}
-            placeholder="£120"
-            inputClass="num"
-            type="number"
-            inputMode="numeric"
-            onChange={(v) => set('monthly_bill', v)}
-            onNext={() => valid(3) && next()}
-            canAdvance={valid(3)}
-            optional
-            error={
-              valid(3) ? null : 'Enter a number between £0 and £10,000.'
-            }
+          <YesNoStep
+            label="Are you the bill payer or decision maker?"
+            hint="Helps the installer have a useful first conversation."
+            value={a.bill_payer}
+            onPick={(v) => pickAndAdvance('bill_payer', v)}
           />
         )}
 
         {step === 4 && (
           <YesNoStep
             label="Is your roof south-facing and mostly unshaded?"
-            hint="If you're not sure, your best guess is fine."
+            hint="A best guess is fine."
             value={a.roof_suitable}
-            onPick={(v) => pickYesNo('roof_suitable', v)}
+            onPick={(v) => pickAndAdvance('roof_suitable', v)}
           />
         )}
 
         {step === 5 && (
           <YesNoStep
             label="Would you consider finance options?"
-            hint="Lots of installers offer 0% interest packages."
+            hint="Many installers offer 0% interest packages."
             value={a.finance_interest}
-            onPick={(v) => pickYesNo('finance_interest', v)}
+            onPick={(v) => pickAndAdvance('finance_interest', v)}
           />
         )}
 
@@ -257,7 +252,7 @@ export function ApplyForm({
             onNext={() => valid(6) && next()}
             canAdvance={valid(6)}
             error={
-              !a.address || valid(6) ? null : 'Please enter your full address.'
+              a.address && !valid(6) ? 'Please enter your full address.' : null
             }
           />
         )}
@@ -272,9 +267,7 @@ export function ApplyForm({
             onChange={(v) => set('name', v)}
             onNext={() => valid(7) && next()}
             canAdvance={valid(7)}
-            error={
-              !a.name || valid(7) ? null : 'Please enter your name.'
-            }
+            error={a.name && !valid(7) ? 'Please enter your name.' : null}
           />
         )}
 
@@ -296,15 +289,22 @@ export function ApplyForm({
           />
         )}
       </div>
-
-      <p className="text-[11px] text-muted text-center">
-        We&apos;ll never sell your details. UK residential only.
-      </p>
     </form>
   );
 }
 
 // ---------- step building blocks ----------
+
+function Heading({ title, hint }: { title: string; hint?: string }) {
+  return (
+    <div>
+      <h2 className="text-xl md:text-2xl font-semibold tracking-tight leading-snug">
+        {title}
+      </h2>
+      {hint && <p className="text-muted text-sm mt-1.5">{hint}</p>}
+    </div>
+  );
+}
 
 function TextStep(props: {
   label: string;
@@ -315,20 +315,21 @@ function TextStep(props: {
   type?: string;
   inputMode?: 'text' | 'numeric' | 'tel' | 'email';
   autoComplete?: string;
+  autoCapitalize?: string;
   onChange: (v: string) => void;
   onNext: () => void;
   canAdvance: boolean;
-  optional?: boolean;
   error?: string | null;
 }) {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 flex-1">
       <Heading title={props.label} hint={props.hint} />
       <input
         data-autofocus
         type={props.type ?? 'text'}
         inputMode={props.inputMode}
         autoComplete={props.autoComplete}
+        autoCapitalize={props.autoCapitalize}
         value={props.value}
         placeholder={props.placeholder}
         onChange={(e) => props.onChange(e.target.value)}
@@ -352,20 +353,8 @@ function TextStep(props: {
           disabled={!props.canAdvance}
           className="btn btn-primary w-full text-base py-3"
         >
-          {props.optional ? 'Next' : 'Next'}
+          Next
         </button>
-        {props.optional && (
-          <button
-            type="button"
-            onClick={() => {
-              props.onChange('');
-              setTimeout(props.onNext, 0);
-            }}
-            className="block w-full text-center text-xs text-muted hover:text-ink mt-2 underline underline-offset-2"
-          >
-            Skip
-          </button>
-        )}
       </div>
     </div>
   );
@@ -379,11 +368,11 @@ function YesNoStep({
 }: {
   label: string;
   hint?: string;
-  value: 'yes' | 'no' | '';
+  value: YN;
   onPick: (v: 'yes' | 'no') => void;
 }) {
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-5 flex-1">
       <Heading title={label} hint={hint} />
       <div className="grid grid-cols-2 gap-3 mt-auto">
         <button
@@ -416,6 +405,42 @@ function YesNoStep({
   );
 }
 
+function BandStep({
+  label,
+  hint,
+  value,
+  onPick,
+}: {
+  label: string;
+  hint?: string;
+  value: '' | BillBandKey;
+  onPick: (v: BillBandKey) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-5 flex-1">
+      <Heading title={label} hint={hint} />
+      <div className="grid grid-cols-1 gap-2 mt-auto">
+        {BILL_BANDS.map((b, i) => (
+          <button
+            key={b.key}
+            data-autofocus={i === 0 ? '' : undefined}
+            type="button"
+            onClick={() => onPick(b.key)}
+            className={`rounded-md border text-base font-medium py-4 text-left px-4
+              ${
+                value === b.key
+                  ? 'bg-amber/10 border-amber text-amber'
+                  : 'bg-white border-hairline hover:bg-hairline/30 text-ink'
+              }`}
+          >
+            <span className="num">{b.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ContactStep({
   phone,
   email,
@@ -430,13 +455,15 @@ function ContactStep({
   canAdvance: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 flex-1">
       <Heading
         title="How can we reach you?"
         hint="The installer will text or call to arrange a quote."
       />
       <div>
-        <label className="label" htmlFor="step-phone">Phone</label>
+        <label className="label" htmlFor="step-phone">
+          Phone
+        </label>
         <input
           id="step-phone"
           data-autofocus
@@ -450,7 +477,9 @@ function ContactStep({
         />
       </div>
       <div>
-        <label className="label" htmlFor="step-email">Email</label>
+        <label className="label" htmlFor="step-email">
+          Email <span className="text-muted normal-case">(optional)</span>
+        </label>
         <input
           id="step-email"
           type="email"
@@ -492,7 +521,7 @@ function ConsentStep({
   initialError: string;
 }) {
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-5 flex-1">
       <Heading
         title="One last thing"
         hint="Tick to agree, then send us your enquiry."
@@ -532,20 +561,9 @@ function ConsentStep({
           disabled={!checked}
           className="btn btn-primary w-full text-base py-3"
         >
-          Get my quote
+          Send my details
         </button>
       </div>
-    </div>
-  );
-}
-
-function Heading({ title, hint }: { title: string; hint?: string }) {
-  return (
-    <div>
-      <h2 className="text-xl md:text-2xl font-semibold tracking-tight leading-snug">
-        {title}
-      </h2>
-      {hint && <p className="text-muted text-sm mt-1.5">{hint}</p>}
     </div>
   );
 }

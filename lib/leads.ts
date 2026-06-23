@@ -1,5 +1,11 @@
 import 'server-only';
 import { getServerAdmin } from './supabase/admin';
+import {
+  assessQualification,
+  bandByKey,
+  dqRule,
+  type BillBandKey,
+} from './qualifying';
 import { routeLead, type RoutingClient } from './routing';
 import { sendSms } from './sms';
 
@@ -9,17 +15,23 @@ import { sendSms } from './sms';
 // (the public form has no logged-in user, so RLS would block any insert
 // via the cookie-auth path). We compensate by validating inputs hard
 // and never trusting client-supplied client_id / routing fields.
+//
+// Phase 5b: bill amount comes in as a `bill_band` key (4 tappable
+// bands) rather than a typed number. Disqualification (not homeowner
+// OR bill_band === 'under_80') skips routing entirely; the lead is
+// still stored and visible to the owner, just never routed and never
+// counted toward any weekly promise.
 
 // ---------- shape from the public form ----------
 export type LeadSubmission = {
   name: string;
   phone: string;
-  email: string;
+  email: string;            // OPTIONAL — empty string treated as null
   address: string;
   postcode: string;
   is_homeowner: boolean;
   bill_payer: boolean;
-  monthly_bill: number | null;
+  bill_band: BillBandKey | null;
   roof_suitable: boolean;
   finance_interest: boolean;
   notes: string | null;
@@ -34,6 +46,7 @@ export type LeadCaptureResult =
       assignedClientId: string | null;
       assignedCompany: string | null;
       ruleFired: string;
+      qualified: boolean;
       smsSent: boolean;
       smsReason: string | null;
     }
@@ -51,12 +64,14 @@ const EMAIL_RE =
 export function validateSubmission(s: LeadSubmission): string | null {
   if (!s.name.trim()) return 'Please enter your name.';
   if (!UK_PHONE_RE.test(s.phone)) return 'Please enter a valid UK phone number.';
-  if (!EMAIL_RE.test(s.email)) return 'Please enter a valid email address.';
+  // Email is OPTIONAL — only validate format if the user supplied one.
+  if (s.email.trim() !== '' && !EMAIL_RE.test(s.email))
+    return 'Please enter a valid email address.';
   if (!s.address.trim()) return 'Please enter your full address.';
   if (!UK_POSTCODE_RE.test(s.postcode))
     return 'Please enter a valid UK postcode (e.g. GU2 8AA).';
-  if (s.monthly_bill != null && (s.monthly_bill < 0 || s.monthly_bill > 10000))
-    return 'Monthly bill looks wrong — enter a number between £0 and £10,000.';
+  if (s.bill_band && !bandByKey(s.bill_band))
+    return 'Please choose a bill band.';
   if (!s.consent) return 'You must agree to be contacted to submit the form.';
   return null;
 }
@@ -80,7 +95,13 @@ async function loadRoutingStateAdmin(now: Date): Promise<RoutingClient[]> {
       )
       .eq('status', 'active'),
     admin.from('client_postcodes').select('client_id, postcode_prefix'),
-    admin.from('leads').select('client_id, created_at'),
+    // IMPORTANT: disqualified leads must NOT count toward weekly promise
+    // fill — they didn't get routed to anyone. Filter them out here so
+    // they never influence future routing decisions.
+    admin
+      .from('leads')
+      .select('client_id, created_at')
+      .neq('status', 'disqualified'),
   ]);
 
   if (clientsRes.error) throw clientsRes.error;
@@ -137,22 +158,39 @@ export async function captureLead(
   const now = new Date();
   const admin = getServerAdmin();
 
-  // 1. Route.
-  const state = await loadRoutingStateAdmin(now);
-  const decision = routeLead(s.postcode, state, now);
+  // 1. Qualification FIRST — DQ shortcuts past routing entirely.
+  const qual = assessQualification({
+    is_homeowner: s.is_homeowner,
+    bill_band: s.bill_band,
+  });
+
+  let clientId: string | null = null;
+  let company: string | null = null;
+  let ruleFired: string;
+
+  if (!qual.qualified) {
+    // Quiet DQ — store the reason, never route, never count.
+    ruleFired = dqRule(qual.reason);
+  } else {
+    const state = await loadRoutingStateAdmin(now);
+    const decision = routeLead(s.postcode, state, now);
+    clientId = decision.winnerId;
+    company = decision.winnerCompany;
+    ruleFired = decision.ruleFired;
+  }
 
   // 2. Build the row. Default 6-month retention; owner can delete sooner.
   const retentionUntil = new Date(now);
   retentionUntil.setUTCMonth(retentionUntil.getUTCMonth() + 6);
 
   const row = {
-    client_id: decision.winnerId,                 // may be null
+    client_id: clientId,
     name: s.name.trim(),
     phone: s.phone.trim(),
-    email: s.email.trim().toLowerCase(),
+    email: s.email.trim().toLowerCase() || null,
     address: s.address.trim(),
     postcode: s.postcode.trim().toUpperCase(),
-    monthly_bill: s.monthly_bill,
+    monthly_bill: qual.representativeBill,
     is_homeowner: s.is_homeowner,
     bill_payer: s.bill_payer,
     roof_suitable: s.roof_suitable,
@@ -162,9 +200,9 @@ export async function captureLead(
     consent: s.consent,
     consent_at: s.consent ? now.toISOString() : null,
     consent_source: s.consent ? source : null,
-    routing_rule_fired: decision.ruleFired,
+    routing_rule_fired: ruleFired,
     data_retention_until: retentionUntil.toISOString(),
-    status: 'new' as const,
+    status: (qual.qualified ? 'new' : 'disqualified') as 'new' | 'disqualified',
   };
 
   const { data: inserted, error: insErr } = await admin
@@ -176,17 +214,25 @@ export async function captureLead(
     return { ok: false, error: `Could not save lead: ${insErr?.message ?? 'unknown'}` };
   }
 
-  // 3. Optionally notify (consent-gated below).
-  const notify = await notifyLeadAfterCapture(inserted.id);
+  // 3. Notify (consent-gated). Disqualified leads NEVER get a
+  // "we've matched you with an installer" SMS — that would be a lie.
+  let smsSent = false;
+  let smsReason: string | null = qual.qualified ? null : 'disqualified';
+  if (qual.qualified) {
+    const notify = await notifyLeadAfterCapture(inserted.id);
+    smsSent = notify.sent;
+    smsReason = notify.sent ? null : notify.reason;
+  }
 
   return {
     ok: true,
     leadId: inserted.id,
-    assignedClientId: decision.winnerId,
-    assignedCompany: decision.winnerCompany,
-    ruleFired: decision.ruleFired,
-    smsSent: notify.sent,
-    smsReason: notify.sent ? null : notify.reason,
+    assignedClientId: clientId,
+    assignedCompany: company,
+    ruleFired,
+    qualified: qual.qualified,
+    smsSent,
+    smsReason,
   };
 }
 
