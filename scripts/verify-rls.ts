@@ -183,6 +183,46 @@ async function main() {
         { error, data },
       );
     }
+
+    // Phase 6 — invoice money fields locked down at column level.
+    const hiddenInvoiceCols = ['ad_spend_raw', 'management_markup_pct_snapshot'];
+    for (const col of hiddenInvoiceCols) {
+      const res = await clientPortal
+        .from('invoices')
+        .select(`id, ${col}` as '*')
+        .limit(1);
+      const error = res.error;
+      const data = (res.data ?? []) as Record<string, unknown>[];
+      check(
+        `client cannot read invoices.${col} (column-level revoke)`,
+        !!error || data.every((r) => !(col in r)),
+        { error, data },
+      );
+    }
+
+    // Phase 6 — client's own management_markup_pct stays hidden.
+    const resMm = await clientPortal
+      .from('clients')
+      .select('id, management_markup_pct');
+    const mmErr = resMm.error;
+    const mmData = (resMm.data ?? []) as Record<string, unknown>[];
+    check(
+      'client cannot read clients.management_markup_pct (column-level revoke)',
+      !!mmErr || mmData.every((r) => !('management_markup_pct' in r)),
+      { mmErr, mmData },
+    );
+
+    // Phase 6 — client CAN read their own advertising_management (the
+    // bundled, client-visible total). Confirms the safe-grant works.
+    const resAm = await clientPortal
+      .from('invoices')
+      .select('id, advertising_management, total, status, period')
+      .limit(1);
+    check(
+      "client can read their own invoice's advertising_management",
+      !resAm.error,
+      { error: resAm.error, data: resAm.data },
+    );
   }
 
   if (failed > 0) {

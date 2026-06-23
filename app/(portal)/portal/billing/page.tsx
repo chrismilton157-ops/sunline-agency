@@ -1,8 +1,19 @@
 import { redirect } from 'next/navigation';
-import { loadPortalForClient, requireSession } from '@/lib/data';
-import { fmtMoney2, monthLabel } from '@/lib/format';
+import { loadPortalInvoices, requireSession } from '@/lib/data';
+import { fmtDate, fmtMoney2, monthLabel } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
+
+const statusChip = (s: string) => {
+  switch (s) {
+    case 'paid':
+      return 'bg-good/10 text-good border-good/30';
+    case 'issued':
+      return 'bg-amber/10 text-amber border-amber/30';
+    default:
+      return 'bg-hairline/40 text-muted border-hairline';
+  }
+};
 
 export default async function PortalBillingPage() {
   const { user, role, clientId } = await requireSession();
@@ -12,26 +23,11 @@ export default async function PortalBillingPage() {
     redirect('/login?error=No+client+linked+to+this+account');
   }
 
-  const { client, appointments, invoices } = await loadPortalForClient(clientId);
+  const invoices = await loadPortalInvoices(clientId);
 
-  const now = new Date();
-  const ym = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
-  // Per-sit fee charged for every qualified confirmed appointment that
-  // occurred this month — sits, sales, AND no-shows. Cancellations
-  // before the day are not billable (they never appear here as
-  // appt_date for an outcome other than 'booked').
-  const billableThisMonth = appointments.filter(
-    (a) =>
-      (a.outcome === 'sat' ||
-        a.outcome === 'sold' ||
-        a.outcome === 'no_show') &&
-      a.appt_date.startsWith(ym),
-  );
-  const thisPeriodPerSitFees = billableThisMonth.length * client.per_sit_fee;
-  const invoiceTotal = client.retainer + thisPeriodPerSitFees;
-
-  // Past invoices (excluding current month if present)
-  const pastInvoices = invoices.filter((i) => i.period !== ym);
+  // Client doesn't need to see drafts — those are the owner's working
+  // copy. They see invoices once they've been issued.
+  const visible = invoices.filter((i) => i.status !== 'draft');
 
   return (
     <div className="space-y-8">
@@ -40,85 +36,73 @@ export default async function PortalBillingPage() {
           Billing
         </h1>
         <p className="text-muted text-sm mt-1">
-          Transparent breakdown of what you&apos;re paying us this month, plus past invoices.
+          Every invoice you&apos;ve been issued, with a transparent
+          two-line breakdown.
         </p>
       </header>
 
-      <section className="card p-5 md:p-6">
-        <div className="flex items-baseline justify-between mb-4">
-          <h2 className="font-semibold">This month ({monthLabel(ym)})</h2>
-          <span className="text-xs text-muted">accruing live</span>
-        </div>
-        <dl className="text-sm space-y-2.5">
-          <div className="flex justify-between">
-            <dt className="text-muted">Monthly retainer</dt>
-            <dd className="num">{fmtMoney2(client.retainer)}</dd>
+      {visible.length === 0 && (
+        <section className="card p-8 text-center">
+          <div className="text-muted text-sm">
+            No invoices yet. Your first invoice will appear here once
+            it&apos;s been issued.
           </div>
-          <div className="flex justify-between">
-            <dt className="text-muted">
-              Qualified confirmed appointments ({billableThisMonth.length} × {fmtMoney2(client.per_sit_fee)})
-            </dt>
-            <dd className="num">{fmtMoney2(thisPeriodPerSitFees)}</dd>
-          </div>
-          <div className="flex justify-between pt-3 border-t border-hairline font-medium">
-            <dt>Your invoice</dt>
-            <dd className="num text-amber text-base">{fmtMoney2(invoiceTotal)}</dd>
-          </div>
-        </dl>
-        <p className="text-xs text-muted mt-5">
-          Qualified confirmed appointments are billable whether or not the
-          homeowner shows on the day — both sits and no-shows count. Bookings
-          cancelled before the day don&apos;t.
-        </p>
-      </section>
+        </section>
+      )}
 
-      <section className="card">
-        <header className="px-5 py-4 border-b border-hairline">
-          <h2 className="font-semibold">Past invoices</h2>
-          <p className="text-muted text-xs mt-0.5">
-            Months already invoiced.
-          </p>
-        </header>
-        {pastInvoices.length === 0 ? (
-          <div className="px-5 py-8 text-muted text-sm text-center">
-            No past invoices yet.
+      {visible.map((inv) => (
+        <section key={inv.id} className="card p-5 md:p-6">
+          <div className="flex items-baseline justify-between mb-4">
+            <div>
+              <h2 className="font-semibold text-lg">{monthLabel(inv.period)}</h2>
+              <p className="text-muted text-xs mt-0.5 num">{inv.period}</p>
+            </div>
+            <span
+              className={`text-xs px-2 py-0.5 rounded-full border ${statusChip(
+                inv.status,
+              )}`}
+            >
+              {inv.status}
+              {inv.status === 'issued' && inv.issued_at && (
+                <span className="ml-1 text-muted num">
+                  · issued {fmtDate(inv.issued_at)}
+                </span>
+              )}
+              {inv.status === 'paid' && inv.paid_at && (
+                <span className="ml-1 text-muted num">
+                  · paid {fmtDate(inv.paid_at)}
+                </span>
+              )}
+            </span>
           </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="text-muted text-xs uppercase">
-              <tr className="border-b border-hairline">
-                <th className="text-left font-medium px-5 py-2">Period</th>
-                <th className="text-right font-medium px-3 py-2">Amount</th>
-                <th className="text-right font-medium px-5 py-2">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pastInvoices.map((i) => (
-                <tr
-                  key={i.id}
-                  className="border-b last:border-b-0 border-hairline"
-                >
-                  <td className="px-5 py-3 num">{monthLabel(i.period)}</td>
-                  <td className="px-3 py-3 text-right num">
-                    {fmtMoney2(i.amount)}
-                  </td>
-                  <td className="px-5 py-3 text-right">
-                    {i.paid ? (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-good/10 text-good border border-good/30">
-                        paid
-                      </span>
-                    ) : (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-amber/10 text-amber border border-amber/30">
-                        outstanding
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
+
+          <dl className="text-sm space-y-2.5">
+            <div className="flex justify-between">
+              <dt className="text-muted">Advertising management</dt>
+              <dd className="num">{fmtMoney2(inv.advertising_management)}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-muted">
+                Qualified appointments ({inv.appointment_count} ×{' '}
+                {fmtMoney2(inv.per_sit_fee_snapshot)})
+              </dt>
+              <dd className="num">{fmtMoney2(inv.appointment_fees)}</dd>
+            </div>
+            <div className="flex justify-between pt-3 border-t border-hairline font-medium">
+              <dt>Invoice total</dt>
+              <dd className="num text-amber text-base">
+                {fmtMoney2(inv.total)}
+              </dd>
+            </div>
+          </dl>
+
+          <p className="text-xs text-muted mt-5">
+            Qualified appointments are billable whether or not the homeowner
+            shows on the day — both sits and no-shows count. Bookings
+            cancelled before the day don&apos;t.
+          </p>
+        </section>
+      ))}
     </div>
   );
 }

@@ -49,6 +49,7 @@ async function main() {
         joined_at: '2026-02-01',
         weekly_promise: 12,
         priority: 100,
+        management_markup_pct: 20,
       },
       {
         company: 'Northwind Energy',
@@ -61,6 +62,7 @@ async function main() {
         joined_at: '2026-01-15',
         weekly_promise: 18,
         priority: 100,
+        management_markup_pct: 20,
       },
     ])
     .select('id, company');
@@ -247,10 +249,38 @@ async function main() {
   if (pvErr) throw pvErr;
 
   console.log('→ Inserting invoices');
+  // Phase 6: invoices now carry a structured breakdown. Each row reflects
+  // a realistic monthly bill at the seeded ad_spend_monthly + per_sit_fee
+  // + 20% markup. amount/paid stay populated for legacy queries.
+  //
+  //   BrightRoof — 2026-05: ad_spend 900 × 1.20 = 1080  + 2 appts × £75 = 150 → 1230
+  //   BrightRoof — 2026-06: same shape, issued not paid
+  //   Northwind  — 2026-05: ad_spend 1200 × 1.20 = 1440 + 2 appts × £80 = 160 → 1600
   const { error: iErr } = await admin.from('invoices').insert([
-    { client_id: bright.id, period: '2026-05', amount: 1875, paid: true },
-    { client_id: bright.id, period: '2026-06', amount: 1650, paid: false },
-    { client_id: north.id,  period: '2026-05', amount: 2160, paid: true },
+    {
+      client_id: bright.id, period: '2026-05',
+      advertising_management: 1080, appointment_count: 2, appointment_fees: 150,
+      total: 1230, status: 'paid', per_sit_fee_snapshot: 75,
+      ad_spend_raw: 900, management_markup_pct_snapshot: 20,
+      issued_at: '2026-06-01T09:00:00Z', paid_at: '2026-06-08T12:00:00Z',
+      amount: 1230, paid: true,
+    },
+    {
+      client_id: bright.id, period: '2026-06',
+      advertising_management: 1080, appointment_count: 2, appointment_fees: 150,
+      total: 1230, status: 'issued', per_sit_fee_snapshot: 75,
+      ad_spend_raw: 900, management_markup_pct_snapshot: 20,
+      issued_at: '2026-07-01T09:00:00Z', paid_at: null,
+      amount: 1230, paid: false,
+    },
+    {
+      client_id: north.id, period: '2026-05',
+      advertising_management: 1440, appointment_count: 2, appointment_fees: 160,
+      total: 1600, status: 'paid', per_sit_fee_snapshot: 80,
+      ad_spend_raw: 1200, management_markup_pct_snapshot: 20,
+      issued_at: '2026-06-01T09:00:00Z', paid_at: '2026-06-12T10:00:00Z',
+      amount: 1600, paid: true,
+    },
   ]);
   if (iErr) throw iErr;
 
