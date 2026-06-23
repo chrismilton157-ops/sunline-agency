@@ -58,28 +58,32 @@ export async function requireSession() {
 // Includes ad_spend_monthly (Phase 3 lockdown) and weekly_promise / priority
 // (Phase 4 routing config) — none of these are in the authenticated SELECT
 // grant set in migration 0004.
-async function fetchAgencyClientCols(ids: string[]): Promise<
-  Map<
-    string,
-    { ad_spend_monthly: number; weekly_promise: number; priority: number }
-  >
-> {
+type AgencyClientCols = {
+  ad_spend_monthly: number;
+  weekly_promise: number;
+  priority: number;
+  management_markup_pct: number;
+};
+
+async function fetchAgencyClientCols(
+  ids: string[],
+): Promise<Map<string, AgencyClientCols>> {
   if (ids.length === 0) return new Map();
   const admin = getServerAdmin();
   const { data, error } = await admin
     .from('clients')
-    .select('id, ad_spend_monthly, weekly_promise, priority')
+    .select(
+      'id, ad_spend_monthly, weekly_promise, priority, management_markup_pct',
+    )
     .in('id', ids);
   if (error) throw error;
-  const m = new Map<
-    string,
-    { ad_spend_monthly: number; weekly_promise: number; priority: number }
-  >();
+  const m = new Map<string, AgencyClientCols>();
   for (const row of data ?? []) {
     m.set(row.id as string, {
       ad_spend_monthly: Number(row.ad_spend_monthly ?? 0),
       weekly_promise: Number(row.weekly_promise ?? 0),
       priority: Number(row.priority ?? 100),
+      management_markup_pct: Number(row.management_markup_pct ?? 20),
     });
   }
   return m;
@@ -109,6 +113,7 @@ export async function loadAll() {
       ad_spend_monthly: extra?.ad_spend_monthly ?? 0,
       weekly_promise: extra?.weekly_promise ?? 0,
       priority: extra?.priority ?? 100,
+      management_markup_pct: extra?.management_markup_pct ?? 20,
     };
   });
 
@@ -142,6 +147,7 @@ export async function loadClient(clientId: string) {
     ad_spend_monthly: extra?.ad_spend_monthly ?? 0,
     weekly_promise: extra?.weekly_promise ?? 0,
     priority: extra?.priority ?? 100,
+    management_markup_pct: extra?.management_markup_pct ?? 20,
   };
 
   return {
@@ -318,4 +324,163 @@ export async function loadOwnerLeads(): Promise<{
     leads: (leadsRes.data ?? []) as LeadOwner[],
     clientsById,
   };
+}
+
+// ---------- Phase 6: owner-side invoices ----------
+//
+// Service-role fetch so we read the agency-only columns (ad_spend_raw,
+// management_markup_pct_snapshot). Owner-only callers.
+
+import type { InvoiceOwner } from './types';
+
+export async function loadOwnerInvoices(): Promise<{
+  invoices: InvoiceOwner[];
+  clientsById: Map<string, string>;
+}> {
+  const admin = getServerAdmin();
+  const [invRes, clientsRes] = await Promise.all([
+    admin
+      .from('invoices')
+      .select(
+        `id, client_id, period, advertising_management, appointment_count,
+         appointment_fees, total, status, issued_at, paid_at,
+         amount, paid, per_sit_fee_snapshot,
+         ad_spend_raw, management_markup_pct_snapshot,
+         created_at, updated_at`,
+      )
+      .order('period', { ascending: false })
+      .order('created_at', { ascending: false }),
+    admin.from('clients').select('id, company'),
+  ]);
+  if (invRes.error) throw invRes.error;
+  if (clientsRes.error) throw clientsRes.error;
+
+  const clientsById = new Map<string, string>();
+  for (const c of clientsRes.data ?? []) clientsById.set(c.id, c.company);
+
+  return {
+    invoices: (invRes.data ?? []) as InvoiceOwner[],
+    clientsById,
+  };
+}
+
+// ---------- Phase 6: campaign attribution ----------
+
+export type CampaignAttribution = {
+  campaign_id: string;
+  campaign_name: string;
+  client_id: string;
+  client_company: string;
+  platform: string;
+  ad_spend: number;     // raw — agency-only
+  leads: number;
+  appointments: number; // sat / sold / no-show
+  sales: number;        // sold
+  revenue: number;      // sum of sale_value where sold
+  cost_per_lead: number | null;
+  cost_per_appointment: number | null;
+  cost_per_sale: number | null;
+  roas: number | null;  // revenue / ad_spend
+};
+
+export async function loadCampaignAttribution(): Promise<CampaignAttribution[]> {
+  const admin = getServerAdmin();
+  const [campRes, leadsRes, apptsRes, clientsRes] = await Promise.all([
+    admin.from('campaigns').select('id, client_id, name, platform, ad_spend'),
+    admin
+      .from('leads')
+      .select('id, campaign_id, status'),
+    admin
+      .from('appointments')
+      .select('id, lead_id, outcome, sale_value'),
+    admin.from('clients').select('id, company'),
+  ]);
+  if (campRes.error) throw campRes.error;
+  if (leadsRes.error) throw leadsRes.error;
+  if (apptsRes.error) throw apptsRes.error;
+  if (clientsRes.error) throw clientsRes.error;
+
+  const clientsById = new Map<string, string>();
+  for (const c of clientsRes.data ?? []) clientsById.set(c.id, c.company);
+
+  const leadsByCamp = new Map<string, { id: string; status: string }[]>();
+  for (const l of leadsRes.data ?? []) {
+    if (!l.campaign_id) continue;
+    const arr = leadsByCamp.get(l.campaign_id) ?? [];
+    arr.push({ id: l.id, status: l.status });
+    leadsByCamp.set(l.campaign_id, arr);
+  }
+
+  const apptsByLead = new Map<
+    string,
+    { outcome: string; sale_value: number | null }[]
+  >();
+  for (const a of apptsRes.data ?? []) {
+    const arr = apptsByLead.get(a.lead_id) ?? [];
+    arr.push({ outcome: a.outcome, sale_value: Number(a.sale_value ?? 0) });
+    apptsByLead.set(a.lead_id, arr);
+  }
+
+  const safe = (n: number, d: number) => (d > 0 ? n / d : null);
+
+  return (campRes.data ?? []).map((c) => {
+    const leads = leadsByCamp.get(c.id) ?? [];
+    let appointments = 0;
+    let sales = 0;
+    let revenue = 0;
+    for (const l of leads) {
+      const appts = apptsByLead.get(l.id) ?? [];
+      for (const a of appts) {
+        if (a.outcome === 'sat' || a.outcome === 'sold' || a.outcome === 'no_show') {
+          appointments += 1;
+        }
+        if (a.outcome === 'sold') {
+          sales += 1;
+          revenue += a.sale_value ?? 0;
+        }
+      }
+    }
+    const ad_spend = Number(c.ad_spend ?? 0);
+    return {
+      campaign_id: c.id,
+      campaign_name: c.name,
+      client_id: c.client_id,
+      client_company: clientsById.get(c.client_id) ?? '—',
+      platform: c.platform,
+      ad_spend,
+      leads: leads.length,
+      appointments,
+      sales,
+      revenue,
+      cost_per_lead: safe(ad_spend, leads.length),
+      cost_per_appointment: safe(ad_spend, appointments),
+      cost_per_sale: safe(ad_spend, sales),
+      roas: safe(revenue, ad_spend),
+    };
+  });
+}
+
+// ---------- Phase 6: portal invoice loader ----------
+//
+// The client portal reads invoices via the COOKIE-AUTH supabase client
+// (RLS-enforced) and selects ONLY the safe columns from migration 0007.
+// Agency-only columns (ad_spend_raw, management_markup_pct_snapshot)
+// are not granted, so even if the request asked for them it would not
+// return them.
+
+import type { Invoice } from './types';
+
+export async function loadPortalInvoices(clientId: string): Promise<Invoice[]> {
+  const supabase = getServerSupabase();
+  const { data, error } = await supabase
+    .from('invoices')
+    .select(
+      `id, client_id, period, advertising_management, appointment_count,
+       appointment_fees, total, status, issued_at, paid_at,
+       amount, paid, per_sit_fee_snapshot, created_at, updated_at`,
+    )
+    .eq('client_id', clientId)
+    .order('period', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as Invoice[];
 }

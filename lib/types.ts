@@ -14,6 +14,7 @@ export type Client = {
   joined_at: string;
   weekly_promise: number;
   priority: number;
+  management_markup_pct: number;
 };
 
 export type Appointment = {
@@ -70,7 +71,7 @@ export type LeadOwner = Lead & {
 // mistake. Mirrors the explicit-column SELECT grant in migration 0004.
 export type ClientPublic = Omit<
   Client,
-  'ad_spend_monthly' | 'weekly_promise' | 'priority'
+  'ad_spend_monthly' | 'weekly_promise' | 'priority' | 'management_markup_pct'
 >;
 
 export type ClientPostcode = {
@@ -81,4 +82,36 @@ export type ClientPostcode = {
 export type PostcodeVolume = {
   postcode_prefix: string;
   typical_weekly_leads: number;
+};
+
+// ---------- Phase 6: invoices ----------
+
+export type InvoiceStatus = 'draft' | 'issued' | 'paid';
+
+// Client-visible invoice row — only fields in the column SELECT grant
+// set up in 0007. Specifically excludes `ad_spend_raw` and
+// `management_markup_pct_snapshot`.
+export type Invoice = {
+  id: string;
+  client_id: string;
+  period: string; // YYYY-MM
+  advertising_management: number;
+  appointment_count: number;
+  appointment_fees: number;
+  total: number;
+  status: InvoiceStatus;
+  issued_at: string | null;
+  paid_at: string | null;
+  per_sit_fee_snapshot: number;
+  amount: number; // legacy mirror of total
+  paid: boolean;  // legacy mirror of (status === 'paid')
+  created_at: string;
+  updated_at: string;
+};
+
+// Owner-only invoice — adds the agency-only money columns that the
+// column grant in 0007 keeps out of the authenticated role.
+export type InvoiceOwner = Invoice & {
+  ad_spend_raw: number;
+  management_markup_pct_snapshot: number;
 };

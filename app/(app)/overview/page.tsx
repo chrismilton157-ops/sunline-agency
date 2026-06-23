@@ -61,6 +61,23 @@ export default async function OverviewPage() {
     return br - ar;
   });
 
+  // Phase 6 failsafe alerts.
+  const alerts: { kind: 'bad' | 'amber'; text: string }[] = [];
+  for (const m of perClient) {
+    if (m.marginPerSit != null && m.marginPerSit < 0) {
+      alerts.push({
+        kind: 'bad',
+        text: `${m.client.company}: margin per sit is negative (${fmtMoney2(m.marginPerSit)}).`,
+      });
+    }
+  }
+  if (pf.revenueConcentration != null && pf.revenueConcentration > 0.4) {
+    alerts.push({
+      kind: 'amber',
+      text: `Revenue concentration is ${fmtPct(pf.revenueConcentration)} — one client carries more than 40% of total revenue.`,
+    });
+  }
+
   return (
     <div className="space-y-8">
       <header>
@@ -71,6 +88,25 @@ export default async function OverviewPage() {
           Live agency snapshot · {clients.length} clients
         </p>
       </header>
+
+      {alerts.length > 0 && (
+        <section className="space-y-2">
+          {alerts.map((a, i) => (
+            <div
+              key={i}
+              className={`rounded-md border px-4 py-3 text-sm flex items-start gap-3
+                ${
+                  a.kind === 'bad'
+                    ? 'bg-bad/10 border-bad/30 text-bad'
+                    : 'bg-amber/10 border-amber/30 text-amber'
+                }`}
+            >
+              <span className="font-medium">⚠</span>
+              <span className="text-ink">{a.text}</span>
+            </div>
+          ))}
+        </section>
+      )}
 
       <section className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         <MetricCard
