@@ -460,6 +460,140 @@ export async function loadCampaignAttribution(): Promise<CampaignAttribution[]> 
   });
 }
 
+// ---------- Phase 7: shared-campaign allocation view ----------
+//
+// Loads everything the owner Allocation screen needs for a given period:
+//   - every campaign (regional or single-client) with its client owner
+//   - per-campaign recorded spend for the period (may be missing)
+//   - every lead's campaign_id + client_id + created_at, so the pure
+//     allocator in lib/allocation.ts can compute the split
+// Service-role only — agency-only data.
+
+import type {
+  CampaignAllocation,
+  CampaignSpend,
+  LeadForAllocation,
+} from './allocation';
+import {
+  allocateCampaignSpend,
+  rollUpByClient,
+} from './allocation';
+
+export type AllocationCampaignRow = {
+  campaign_id: string;
+  campaign_name: string;
+  platform: string;
+  client_id: string | null;       // NULL = regional / shared
+  client_company: string | null;  // null for regional
+  is_regional: boolean;
+};
+
+export type AllocationView = {
+  period: string;
+  campaigns: AllocationCampaignRow[];
+  spendByCampaign: Map<string, number>;
+  allocations: CampaignAllocation[];
+  clientsById: Map<string, string>;
+  totalRecorded: number;
+  totalAllocated: number;
+  totalUnallocated: number;
+  perClientTotals: Map<string, number>;
+};
+
+export async function loadAllocationView(
+  period: string,
+): Promise<AllocationView> {
+  const admin = getServerAdmin();
+  const [campRes, spendRes, leadsRes, clientsRes] = await Promise.all([
+    admin
+      .from('campaigns')
+      .select('id, client_id, name, platform')
+      .order('name'),
+    admin
+      .from('campaign_spend')
+      .select('campaign_id, period, amount')
+      .eq('period', period),
+    admin
+      .from('leads')
+      .select('campaign_id, client_id, created_at'),
+    admin.from('clients').select('id, company'),
+  ]);
+  if (campRes.error) throw campRes.error;
+  if (spendRes.error) throw spendRes.error;
+  if (leadsRes.error) throw leadsRes.error;
+  if (clientsRes.error) throw clientsRes.error;
+
+  const clientsById = new Map<string, string>();
+  for (const c of clientsRes.data ?? []) {
+    clientsById.set(c.id as string, c.company as string);
+  }
+
+  const campaigns: AllocationCampaignRow[] = (campRes.data ?? []).map((c) => ({
+    campaign_id: c.id as string,
+    campaign_name: c.name as string,
+    platform: c.platform as string,
+    client_id: (c.client_id as string | null) ?? null,
+    client_company: c.client_id
+      ? (clientsById.get(c.client_id as string) ?? null)
+      : null,
+    is_regional: c.client_id == null,
+  }));
+
+  const spendByCampaign = new Map<string, number>();
+  for (const s of (spendRes.data ?? []) as CampaignSpend[]) {
+    spendByCampaign.set(s.campaign_id, Number(s.amount ?? 0));
+  }
+
+  const leads: LeadForAllocation[] = (leadsRes.data ?? []).map((l) => ({
+    campaign_id: l.campaign_id as string | null,
+    client_id: l.client_id as string | null,
+    created_at: String(l.created_at),
+  }));
+
+  // Only allocate for campaigns that have recorded spend in this period.
+  const allocations = campaigns
+    .filter((c) => spendByCampaign.has(c.campaign_id))
+    .map((c) =>
+      allocateCampaignSpend(
+        c.campaign_id,
+        period,
+        spendByCampaign.get(c.campaign_id) ?? 0,
+        leads,
+      ),
+    );
+
+  const totalRecorded = Array.from(spendByCampaign.values()).reduce(
+    (s, v) => s + v,
+    0,
+  );
+  const totalUnallocated = allocations.reduce(
+    (s, a) => s + a.unallocated_amount,
+    0,
+  );
+  const totalAllocated = totalRecorded - totalUnallocated;
+
+  const perClientTotals = new Map<string, number>();
+  for (const r of rollUpByClient(allocations)) {
+    perClientTotals.set(r.client_id, r.allocated_spend);
+  }
+
+  return {
+    period,
+    campaigns,
+    spendByCampaign,
+    allocations,
+    clientsById,
+    totalRecorded: round2(totalRecorded),
+    totalAllocated: round2(totalAllocated),
+    totalUnallocated: round2(totalUnallocated),
+    perClientTotals,
+  };
+}
+
+function round2(n: number): number {
+  return Math.round((Number.isFinite(n) ? n : 0) * 100) / 100;
+}
+
 // ---------- Phase 6: portal invoice loader ----------
 //
 // The client portal reads invoices via the COOKIE-AUTH supabase client

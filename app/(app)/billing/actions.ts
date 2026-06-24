@@ -9,6 +9,11 @@ import {
   DEFAULT_MANAGEMENT_MARKUP_PCT,
   type InvoiceStatus,
 } from '@/lib/billing';
+import {
+  allocateCampaignSpend,
+  rollUpByClient,
+  type LeadForAllocation,
+} from '@/lib/allocation';
 import type { Appointment } from '@/lib/types';
 
 const PERIOD_RE = /^\d{4}-\d{2}$/;
@@ -29,26 +34,59 @@ export async function generateInvoices(formData: FormData) {
   }
 
   const admin = getServerAdmin();
-  const [clientsRes, apptsRes, existingRes] = await Promise.all([
-    admin
-      .from('clients')
-      .select(
-        'id, per_sit_fee, ad_spend_monthly, management_markup_pct',
-      )
-      .eq('status', 'active'),
-    admin
-      .from('appointments')
-      .select(
-        'id, client_id, lead_id, appt_date, setter, outcome, sale_value, invoiced, quality_rating, quality_reason, confirmed_at',
-      ),
-    admin
-      .from('invoices')
-      .select('id, client_id, status')
-      .eq('period', period),
-  ]);
+  const [clientsRes, apptsRes, existingRes, spendRes, leadsRes] =
+    await Promise.all([
+      admin
+        .from('clients')
+        .select(
+          'id, per_sit_fee, ad_spend_monthly, management_markup_pct',
+        )
+        .eq('status', 'active'),
+      admin
+        .from('appointments')
+        .select(
+          'id, client_id, lead_id, appt_date, setter, outcome, sale_value, invoiced, quality_rating, quality_reason, confirmed_at',
+        ),
+      admin
+        .from('invoices')
+        .select('id, client_id, status')
+        .eq('period', period),
+      admin
+        .from('campaign_spend')
+        .select('campaign_id, period, amount')
+        .eq('period', period),
+      admin
+        .from('leads')
+        .select('campaign_id, client_id, created_at'),
+    ]);
   if (clientsRes.error) throw clientsRes.error;
   if (apptsRes.error) throw apptsRes.error;
   if (existingRes.error) throw existingRes.error;
+  if (spendRes.error) throw spendRes.error;
+  if (leadsRes.error) throw leadsRes.error;
+
+  // Run the campaign-level allocation once for the whole period, then
+  // roll it up to a per-client total so each client gets the sum of
+  // their shares across every campaign they received leads from.
+  const leadsForAllocation: LeadForAllocation[] = (leadsRes.data ?? []).map(
+    (l) => ({
+      campaign_id: l.campaign_id as string | null,
+      client_id: l.client_id as string | null,
+      created_at: String(l.created_at),
+    }),
+  );
+  const campaignAllocations = (spendRes.data ?? []).map((s) =>
+    allocateCampaignSpend(
+      s.campaign_id as string,
+      period,
+      Number(s.amount ?? 0),
+      leadsForAllocation,
+    ),
+  );
+  const allocatedByClient = new Map<string, number>();
+  for (const r of rollUpByClient(campaignAllocations)) {
+    allocatedByClient.set(r.client_id, r.allocated_spend);
+  }
 
   const lockedClientIds = new Set(
     (existingRes.data ?? [])
@@ -77,8 +115,14 @@ export async function generateInvoices(formData: FormData) {
       period,
     );
 
+    // Phase 7: ad spend now comes from the campaign-level allocation,
+    // not the per-client ad_spend_monthly field. A client with no
+    // assigned leads from any spent-on campaign in the period gets
+    // £0 ad spend on their invoice — which is correct.
+    const allocated = allocatedByClient.get(c.id) ?? 0;
+
     const b = computeInvoice({
-      ad_spend_monthly: Number(c.ad_spend_monthly ?? 0),
+      ad_spend_monthly: allocated,
       management_markup_pct:
         Number(c.management_markup_pct ?? DEFAULT_MANAGEMENT_MARKUP_PCT),
       per_sit_fee: Number(c.per_sit_fee ?? 0),
@@ -120,6 +164,7 @@ export async function generateInvoices(formData: FormData) {
   revalidatePath('/billing');
   revalidatePath('/overview');
   revalidatePath('/clients');
+  revalidatePath('/allocation');
   revalidatePath('/portal/billing', 'layout');
 
   const qs = new URLSearchParams({
