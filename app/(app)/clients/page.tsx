@@ -9,6 +9,7 @@ import {
   repsFlag,
 } from '@/lib/metrics';
 import { fmtInt, fmtMoney2, fmtPct, fmtRatio } from '@/lib/format';
+import { AddClientButton } from './AddClientButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,13 +38,16 @@ export default async function ClientsPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
-          Clients
-        </h1>
-        <p className="text-muted text-sm mt-1">
-          Tap a row for full client detail.
-        </p>
+      <header className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
+            Clients
+          </h1>
+          <p className="text-muted text-sm mt-1">
+            Tap a row for full client detail.
+          </p>
+        </div>
+        <AddClientButton />
       </header>
 
       <div className="card overflow-hidden">
