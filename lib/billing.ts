@@ -13,6 +13,15 @@ import type { Appointment } from './types';
 // applies only if a client's row hasn't been set.
 export const DEFAULT_MANAGEMENT_MARKUP_PCT = 20;
 
+// Budget recommendation assumptions used in the onboarding wizard.
+// Owner-editable later (will move to a settings screen); keep them here so
+// there is exactly one place to change them.
+//
+// Typical UK residential solar cost-per-lead range: ~£20–£80.
+export const DEFAULT_CPL_GBP = 40;
+// Share of generated leads that become booked appointments (industry average ~25–35%).
+export const DEFAULT_LEAD_TO_APPT_PCT = 30;
+
 // Billable outcomes — appointment occurred and we charge for it.
 // Cancellations before the day stay 'booked' and are NOT billed.
 // Confirmation status (confirmed_at) does NOT gate billing — see the

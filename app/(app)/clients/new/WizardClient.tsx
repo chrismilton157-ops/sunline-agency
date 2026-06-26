@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { checkOverpromise, createClient } from './actions';
+import { DEFAULT_CPL_GBP, DEFAULT_LEAD_TO_APPT_PCT } from '@/lib/billing';
 
 // ---------- types ----------
 
@@ -23,6 +24,11 @@ type FormState = {
   perSitFee: number;
   managementMarkupPct: number;
   priority: number;
+  // Step 3 — budget calculator (owner-only, not stored, reference only)
+  apptWanted: number;
+  apptPeriod: 'week' | 'month';
+  cplGbp: number;
+  leadToApptPct: number;
   // Step 5
   loginEmail: string;
   loginPassword: string;
@@ -87,6 +93,10 @@ export default function WizardClient() {
     perSitFee: 75,
     managementMarkupPct: 20,
     priority: 100,
+    apptWanted: 10,
+    apptPeriod: 'week',
+    cplGbp: DEFAULT_CPL_GBP,
+    leadToApptPct: DEFAULT_LEAD_TO_APPT_PCT,
     loginEmail: '',
     loginPassword: generatePassword(),
   });
@@ -370,6 +380,18 @@ export default function WizardClient() {
                 onChange={(e) => set('priority', parseInt(e.target.value, 10) || 100)}
               />
             </FieldRow>
+
+            {/* ── Budget recommendation calculator ── */}
+            <BudgetCalculator
+              apptWanted={form.apptWanted}
+              apptPeriod={form.apptPeriod}
+              cplGbp={form.cplGbp}
+              leadToApptPct={form.leadToApptPct}
+              onApptWanted={(v) => set('apptWanted', v)}
+              onApptPeriod={(v) => set('apptPeriod', v)}
+              onCplGbp={(v) => set('cplGbp', v)}
+              onLeadToApptPct={(v) => set('leadToApptPct', v)}
+            />
           </div>
         )}
 
@@ -628,6 +650,141 @@ export default function WizardClient() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ---------- budget recommendation calculator ----------
+
+function fmt(n: number): string {
+  return n.toLocaleString('en-GB', { maximumFractionDigits: 0 });
+}
+
+function BudgetCalculator({
+  apptWanted,
+  apptPeriod,
+  cplGbp,
+  leadToApptPct,
+  onApptWanted,
+  onApptPeriod,
+  onCplGbp,
+  onLeadToApptPct,
+}: {
+  apptWanted: number;
+  apptPeriod: 'week' | 'month';
+  cplGbp: number;
+  leadToApptPct: number;
+  onApptWanted: (v: number) => void;
+  onApptPeriod: (v: 'week' | 'month') => void;
+  onCplGbp: (v: number) => void;
+  onLeadToApptPct: (v: number) => void;
+}) {
+  const rate = Math.max(leadToApptPct, 0.1) / 100;
+  const apptPerMonth = apptPeriod === 'week' ? apptWanted * 4.3 : apptWanted;
+  const leadsNeededPerMonth = apptPerMonth / rate;
+  const budgetMonthly = leadsNeededPerMonth * cplGbp;
+
+  const leadsPerPeriod = apptPeriod === 'week'
+    ? leadsNeededPerMonth / 4.3
+    : leadsNeededPerMonth;
+
+  const periodLabel = apptPeriod === 'week' ? '/week' : '/month';
+
+  const valid = apptWanted > 0 && cplGbp > 0 && leadToApptPct > 0;
+
+  return (
+    <div className="rounded-lg border border-amber/30 bg-amber/5 p-4 space-y-4 mt-2">
+      <div>
+        <p className="text-sm font-semibold text-slate-800">Budget recommendation</p>
+        <p className="text-xs text-muted mt-0.5">
+          How many appointments does this client want? Adjust the assumptions below to see an estimated monthly ad budget.
+        </p>
+      </div>
+
+      {/* appointments wanted + toggle */}
+      <div className="flex gap-2 items-end">
+        <div className="flex-1 space-y-1">
+          <label className="block text-sm font-medium text-slate-700">Appointments wanted</label>
+          <input
+            className="input w-full"
+            type="number"
+            min={1}
+            step={1}
+            value={apptWanted}
+            onChange={(e) => onApptWanted(parseInt(e.target.value, 10) || 1)}
+          />
+        </div>
+        <div className="flex rounded-md border border-slate-300 overflow-hidden text-sm h-[38px] shrink-0">
+          <button
+            type="button"
+            className={`px-3 h-full transition-colors ${apptPeriod === 'week' ? 'bg-amber text-white font-medium' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+            onClick={() => onApptPeriod('week')}
+          >
+            /week
+          </button>
+          <button
+            type="button"
+            className={`px-3 h-full transition-colors ${apptPeriod === 'month' ? 'bg-amber text-white font-medium' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+            onClick={() => onApptPeriod('month')}
+          >
+            /month
+          </button>
+        </div>
+      </div>
+
+      {/* editable assumptions */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <label className="block text-xs font-medium text-slate-700">
+            Est. cost per lead (£)
+            <span className="text-muted font-normal ml-1">typical £20–80</span>
+          </label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted text-sm">£</span>
+            <input
+              className="input w-full pl-7"
+              type="number"
+              min={1}
+              step={1}
+              value={cplGbp}
+              onChange={(e) => onCplGbp(parseFloat(e.target.value) || 1)}
+            />
+          </div>
+        </div>
+        <div className="space-y-1">
+          <label className="block text-xs font-medium text-slate-700">
+            Lead → appointment rate
+          </label>
+          <div className="relative">
+            <input
+              className="input w-full pr-7"
+              type="number"
+              min={1}
+              max={100}
+              step={1}
+              value={leadToApptPct}
+              onChange={(e) => onLeadToApptPct(parseFloat(e.target.value) || 1)}
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted text-sm">%</span>
+          </div>
+        </div>
+      </div>
+
+      {/* result */}
+      {valid && (
+        <div className="rounded-md bg-white border border-amber/40 px-4 py-3 space-y-1">
+          <p className="text-sm text-slate-800">
+            For <strong>{fmt(apptWanted)} appointments{periodLabel}</strong> we&apos;d estimate{' '}
+            <strong>~{fmt(Math.round(leadsPerPeriod))} leads{periodLabel}</strong> and{' '}
+            <strong>~£{fmt(Math.round(budgetMonthly))}/month</strong> in ad spend
+            {' '}(at ~{leadToApptPct}% lead→appointment and ~£{cplGbp}/lead).
+          </p>
+          <p className="text-xs text-muted leading-snug">
+            Estimate only — it depends on both cost per lead AND how many leads convert to appointments,
+            which firm up after the first weeks of ad testing. Quote clients conservatively.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
