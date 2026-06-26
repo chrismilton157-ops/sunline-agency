@@ -263,6 +263,35 @@ async function main() {
       (leakLeads ?? []).length === 0,
       leakLeads,
     );
+
+    // Phase 8 — call_dispositions is agency-only: table-level SELECT is
+    // revoked from authenticated in migration 0009.
+    const resDisp = await clientPortal
+      .from('call_dispositions')
+      .select('id, lead_id, disposition');
+    check(
+      'client cannot read any call_dispositions (table-level revoke)',
+      !!resDisp.error || (resDisp.data ?? []).length === 0,
+      { error: resDisp.error, data: resDisp.data },
+    );
+
+    // Phase 8 — queue tracking columns (no_answer_count, queue_claimed_by,
+    // queue_claimed_at) are not in the column-level SELECT grant on leads
+    // (migration 0006), so the authenticated role cannot read them.
+    const queueCols = ['no_answer_count', 'queue_claimed_by', 'queue_claimed_at'];
+    for (const col of queueCols) {
+      const res = await clientPortal
+        .from('leads')
+        .select(`id, ${col}` as '*')
+        .limit(1);
+      const error = res.error;
+      const data = (res.data ?? []) as Record<string, unknown>[];
+      check(
+        `client cannot read leads.${col} (not in column SELECT grant)`,
+        !!error || data.every((r) => !(col in r)),
+        { error, data },
+      );
+    }
   }
 
   if (failed > 0) {

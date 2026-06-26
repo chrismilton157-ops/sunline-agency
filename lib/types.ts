@@ -84,6 +84,36 @@ export type PostcodeVolume = {
   typical_weekly_leads: number;
 };
 
+// ---------- Phase 8: calling queue ----------
+
+export type CallDispositionType =
+  | 'no_answer'
+  | 'callback'
+  | 'not_interested'
+  | 'wrong_number'
+  | 'disqualified'
+  | 'booked';
+
+export type CallDisposition = {
+  id: string;
+  lead_id: string;
+  disposition: CallDispositionType;
+  callback_at: string | null;
+  disqual_reason: string | null;
+  notes: string | null;
+  created_by: string;
+  created_at: string;
+};
+
+// Extends LeadOwner with queue tracking fields (admin-client only; not in the
+// column-level SELECT grant from migration 0006, so invisible to authenticated).
+export type LeadQueue = LeadOwner & {
+  no_answer_count: number;
+  queue_claimed_by: string | null;
+  queue_claimed_at: string | null;
+  dispositions: CallDisposition[];
+};
+
 // ---------- Phase 6: invoices ----------
 
 export type InvoiceStatus = 'draft' | 'issued' | 'paid';
