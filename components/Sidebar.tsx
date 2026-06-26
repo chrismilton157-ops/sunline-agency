@@ -9,6 +9,7 @@ const items = [
   { href: '/routing', label: 'Routing' },
   { href: '/leads', label: 'Leads' },
   { href: '/queue', label: 'Call queue' },
+  { href: '/confirmations', label: 'Confirmations' },
   { href: '/billing', label: 'Billing' },
   { href: '/allocation', label: 'Allocation' },
   { href: '/attribution', label: 'Attribution' },
