@@ -275,6 +275,17 @@ async function main() {
       { error: resDisp.error, data: resDisp.data },
     );
 
+    // Phase 9 — confirmation_attempts is agency-only: table-level SELECT is
+    // revoked from authenticated in migration 0010.
+    const resConf = await clientPortal
+      .from('confirmation_attempts')
+      .select('id, appointment_id, method');
+    check(
+      'client cannot read any confirmation_attempts (table-level revoke)',
+      !!resConf.error || (resConf.data ?? []).length === 0,
+      { error: resConf.error, data: resConf.data },
+    );
+
     // Phase 8 — queue tracking columns (no_answer_count, queue_claimed_by,
     // queue_claimed_at) are not in the column-level SELECT grant on leads
     // (migration 0006), so the authenticated role cannot read them.

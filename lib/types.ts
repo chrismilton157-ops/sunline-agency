@@ -114,6 +114,35 @@ export type LeadQueue = LeadOwner & {
   dispositions: CallDisposition[];
 };
 
+// ---------- Phase 9: confirmation queue ----------
+
+export type ConfirmationAttempt = {
+  id: string;
+  appointment_id: string;
+  method: string;
+  notes: string | null;
+  attempted_by: string;
+  created_at: string;
+};
+
+export type ConfirmationAppointment = {
+  id: string;
+  client_id: string;
+  lead_id: string;
+  appt_date: string;
+  setter: string | null;
+  outcome: Outcome;
+  confirmed_at: string | null;
+  // Joined from leads
+  lead_name: string | null;
+  lead_phone: string | null;
+  lead_address: string | null;
+  // Joined from clients
+  client_company: string;
+  // Attempt history
+  attempts: ConfirmationAttempt[];
+};
+
 // ---------- Phase 6: invoices ----------
 
 export type InvoiceStatus = 'draft' | 'issued' | 'paid';
