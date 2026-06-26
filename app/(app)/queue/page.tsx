@@ -1,0 +1,112 @@
+import { redirect } from 'next/navigation';
+import { getServerSupabase } from '@/lib/supabase/server';
+import { getServerAdmin } from '@/lib/supabase/admin';
+import type { LeadQueue, CallDisposition } from '@/lib/types';
+import { QueueClient } from './QueueClient';
+
+export const dynamic = 'force-dynamic';
+
+const STALE_MS = 30 * 60 * 1000;
+
+export default async function QueuePage() {
+  const supabase = getServerSupabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data: userRow } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+  if (userRow?.role === 'client') redirect('/portal');
+  if (!userRow?.role) redirect('/login');
+
+  const admin = getServerAdmin();
+
+  // Auto-release stale claims before loading queue
+  const staleAt = new Date(Date.now() - STALE_MS).toISOString();
+  await admin
+    .from('leads')
+    .update({ queue_claimed_by: null, queue_claimed_at: null })
+    .not('queue_claimed_by', 'is', null)
+    .lt('queue_claimed_at', staleAt);
+
+  // Load queue: consented leads that aren't disqualified, newest first
+  const { data: rawLeads, error } = await admin
+    .from('leads')
+    .select(
+      'id, client_id, campaign_id, name, phone, email, address, postcode, ' +
+      'monthly_bill, is_homeowner, bill_payer, roof_suitable, finance_interest, ' +
+      'consent, status, response_mins, created_at, updated_at, ' +
+      'notes, campaign_source, consent_at, consent_source, routing_rule_fired, data_retention_until, ' +
+      'no_answer_count, queue_claimed_by, queue_claimed_at',
+    )
+    .eq('consent', true)
+    .neq('status', 'disqualified')
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+
+  // Load dispositions for these leads
+  const leadIds = (rawLeads ?? []).map((l) => l.id);
+  let dispositionsMap = new Map<string, CallDisposition[]>();
+  if (leadIds.length > 0) {
+    const { data: disps } = await admin
+      .from('call_dispositions')
+      .select('id, lead_id, disposition, callback_at, disqual_reason, notes, created_by, created_at')
+      .in('lead_id', leadIds)
+      .order('created_at', { ascending: true });
+    for (const d of disps ?? []) {
+      const arr = dispositionsMap.get(d.lead_id) ?? [];
+      arr.push(d as CallDisposition);
+      dispositionsMap.set(d.lead_id, arr);
+    }
+  }
+
+  const leads: LeadQueue[] = (rawLeads ?? []).map((l) => ({
+    ...l,
+    dispositions: dispositionsMap.get(l.id) ?? [],
+  })) as LeadQueue[];
+
+  const totalConsented = leads.length;
+  const uncalled = leads.filter((l) => l.status === 'new').length;
+  const contacted = leads.filter((l) => l.status === 'contacted').length;
+  const booked = leads.filter((l) => l.status === 'booked').length;
+
+  return (
+    <div className="space-y-6">
+      <header>
+        <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
+          Call queue
+        </h1>
+        <p className="text-muted text-sm mt-1">
+          Newest leads first. Claim a lead, dial, then record the outcome.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+          <span className="num px-2 py-1 rounded-md bg-hairline/40 text-ink">
+            {totalConsented} with consent
+          </span>
+          {uncalled > 0 && (
+            <span className="num px-2 py-1 rounded-md bg-amber/10 text-amber border border-amber/30">
+              {uncalled} uncalled
+            </span>
+          )}
+          {contacted > 0 && (
+            <span className="num px-2 py-1 rounded-md bg-hairline/40 text-ink border border-hairline">
+              {contacted} contacted
+            </span>
+          )}
+          {booked > 0 && (
+            <span className="num px-2 py-1 rounded-md bg-good/10 text-good border border-good/30">
+              {booked} booked
+            </span>
+          )}
+        </div>
+      </header>
+
+      <QueueClient leads={leads} userId={user.id} />
+    </div>
+  );
+}

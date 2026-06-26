@@ -8,6 +8,7 @@ const items = [
   { href: '/clients', label: 'Clients' },
   { href: '/routing', label: 'Routing' },
   { href: '/leads', label: 'Leads' },
+  { href: '/queue', label: 'Call queue' },
   { href: '/billing', label: 'Billing' },
   { href: '/allocation', label: 'Allocation' },
   { href: '/attribution', label: 'Attribution' },
