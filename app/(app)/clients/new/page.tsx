@@ -1,8 +1,10 @@
 import WizardClient from './WizardClient';
+import { getSettings } from '@/lib/settings';
 
 export const dynamic = 'force-dynamic';
 
-export default function NewClientPage() {
+export default async function NewClientPage() {
+  const { default_per_sit_fee } = await getSettings();
   return (
     <div className="space-y-6">
       <header>
@@ -11,7 +13,7 @@ export default function NewClientPage() {
           Step-by-step onboarding for a new installer client.
         </p>
       </header>
-      <WizardClient />
+      <WizardClient defaultPerSitFee={default_per_sit_fee} />
     </div>
   );
 }
