@@ -18,6 +18,8 @@ const ownerEmail = req('SEED_OWNER_EMAIL');
 const ownerPassword = req('SEED_OWNER_PASSWORD');
 const clientEmail = req('SEED_CLIENT_EMAIL');
 const clientPassword = req('SEED_CLIENT_PASSWORD');
+const setterEmail = req('SEED_SETTER_EMAIL');
+const setterPassword = req('SEED_SETTER_PASSWORD');
 
 const admin = createClient(url, service, {
   auth: { autoRefreshToken: false, persistSession: false },
@@ -31,6 +33,7 @@ async function main() {
 
   const ownerClient = await signedInClient(ownerEmail, ownerPassword);
   const clientPortal = await signedInClient(clientEmail, clientPassword);
+  const setterClient = await signedInClient(setterEmail, setterPassword);
 
   let failed = 0;
   const check = (label: string, pass: boolean, detail?: unknown) => {
@@ -303,6 +306,111 @@ async function main() {
         { error, data },
       );
     }
+  }
+
+  console.log('Setter isolation:');
+  {
+    // Setter CAN read leads (they need the queue) — safe columns only.
+    const { data: setterLeads, error: slErr } = await setterClient
+      .from('leads')
+      .select('id, name, phone, consent')
+      .limit(5);
+    check(
+      'setter can read leads (queue access)',
+      !slErr && (setterLeads?.length ?? 0) > 0,
+      { slErr, count: setterLeads?.length },
+    );
+
+    // Setter CANNOT read clients (no RLS policy for setter).
+    const { data: setterClients, error: scErr } = await setterClient
+      .from('clients')
+      .select('id, company');
+    check(
+      'setter cannot read any clients rows (no RLS policy)',
+      !!scErr || (setterClients?.length ?? 0) === 0,
+      { scErr, setterClients },
+    );
+
+    // Setter CANNOT read campaigns.
+    const { data: setterCampaigns, error: sccErr } = await setterClient
+      .from('campaigns')
+      .select('id, name');
+    check(
+      'setter cannot read any campaigns rows',
+      !!sccErr || (setterCampaigns?.length ?? 0) === 0,
+      { sccErr, setterCampaigns },
+    );
+
+    // Setter CANNOT read invoices.
+    const { data: setterInvoices, error: siErr } = await setterClient
+      .from('invoices')
+      .select('id, total');
+    check(
+      'setter cannot read any invoices rows',
+      !!siErr || (setterInvoices?.length ?? 0) === 0,
+      { siErr, setterInvoices },
+    );
+
+    // Setter CANNOT read money column on clients (column-level revoke).
+    const { error: sadErr, data: sadData } = await setterClient
+      .from('clients')
+      .select('id, ad_spend_monthly');
+    check(
+      'setter cannot read clients.ad_spend_monthly (column-level revoke)',
+      !!sadErr || (sadData ?? []).every((r: Record<string, unknown>) => !('ad_spend_monthly' in r)),
+      { sadErr, sadData },
+    );
+
+    // Setter CANNOT read campaign_spend (table-level SELECT revoke).
+    const { data: scsData, error: scsErr } = await setterClient
+      .from('campaign_spend')
+      .select('campaign_id, amount');
+    check(
+      'setter cannot read campaign_spend (table-level revoke)',
+      !!scsErr || (scsData?.length ?? 0) === 0,
+      { scsErr, scsData },
+    );
+
+    // Setter CANNOT read call_dispositions (table-level SELECT revoke).
+    const { data: scdData, error: scdErr } = await setterClient
+      .from('call_dispositions')
+      .select('id, disposition');
+    check(
+      'setter cannot read call_dispositions (table-level revoke)',
+      !!scdErr || (scdData?.length ?? 0) === 0,
+      { scdErr, scdData },
+    );
+
+    // Setter CANNOT read confirmation_attempts (table-level SELECT revoke).
+    const { data: scaData, error: scaErr } = await setterClient
+      .from('confirmation_attempts')
+      .select('id, method');
+    check(
+      'setter cannot read confirmation_attempts (table-level revoke)',
+      !!scaErr || (scaData?.length ?? 0) === 0,
+      { scaErr, scaData },
+    );
+
+    // Setter CANNOT read agency-only lead columns (column-level revoke).
+    const { error: snErr, data: snData } = await setterClient
+      .from('leads')
+      .select('id, notes')
+      .limit(1);
+    check(
+      'setter cannot read leads.notes (column-level revoke)',
+      !!snErr || (snData ?? []).every((r: Record<string, unknown>) => !('notes' in r)),
+      { snErr, snData },
+    );
+
+    // Setter CANNOT read client_postcodes (no RLS policy → deny all rows).
+    const { data: spcData, error: spcErr } = await setterClient
+      .from('client_postcodes')
+      .select('postcode_prefix');
+    check(
+      'setter cannot read client_postcodes',
+      !!spcErr || (spcData?.length ?? 0) === 0,
+      { spcErr, spcData },
+    );
   }
 
   if (failed > 0) {

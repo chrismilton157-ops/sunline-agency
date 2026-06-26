@@ -56,7 +56,10 @@ export async function middleware(request: NextRequest) {
       .eq('id', user.id)
       .single();
     const url = request.nextUrl.clone();
-    url.pathname = row?.role === 'client' ? '/portal' : '/overview';
+    url.pathname =
+      row?.role === 'client' ? '/portal'
+      : row?.role === 'setter' ? '/setter'
+      : '/overview';
     return NextResponse.redirect(url);
   }
 

@@ -14,6 +14,7 @@ const items = [
   { href: '/allocation', label: 'Allocation' },
   { href: '/attribution', label: 'Attribution' },
   { href: '/log', label: 'Log activity' },
+  { href: '/setters', label: 'Setters' },
   { href: '/settings', label: 'Settings' },
 ];
 

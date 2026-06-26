@@ -12,6 +12,8 @@ const ownerEmail = required('SEED_OWNER_EMAIL');
 const ownerPassword = required('SEED_OWNER_PASSWORD');
 const clientEmail = required('SEED_CLIENT_EMAIL');
 const clientPassword = required('SEED_CLIENT_PASSWORD');
+const setterEmail = required('SEED_SETTER_EMAIL');
+const setterPassword = required('SEED_SETTER_PASSWORD');
 
 const admin = createClient(url, serviceKey, {
   auth: { autoRefreshToken: false, persistSession: false },
@@ -34,6 +36,7 @@ async function main() {
   console.log('→ Ensuring auth users exist');
   const ownerId = await ensureAuthUser(ownerEmail, ownerPassword);
   const clientLoginId = await ensureAuthUser(clientEmail, clientPassword);
+  const setterId = await ensureAuthUser(setterEmail, setterPassword);
 
   console.log('→ Inserting clients');
   const { data: clients, error: cErr } = await admin
@@ -73,11 +76,12 @@ async function main() {
   const north = clients.find((c) => c.company === 'Northwind Energy')!;
 
   console.log('→ Linking users → clients');
-  // Owner row (client_id null), client login mapped to BrightRoof.
+  // Owner row (client_id null), client login mapped to BrightRoof, setter (client_id null).
   const { error: uErr } = await admin.from('users').upsert(
     [
       { id: ownerId, email: ownerEmail, role: 'owner', client_id: null },
       { id: clientLoginId, email: clientEmail, role: 'client', client_id: bright.id },
+      { id: setterId, email: setterEmail, role: 'setter', client_id: null },
     ],
     { onConflict: 'id' },
   );
@@ -350,6 +354,7 @@ async function main() {
   console.log('✓ Seed complete');
   console.log(`  owner login   → ${ownerEmail}`);
   console.log(`  client login  → ${clientEmail}  (BrightRoof Solar)`);
+  console.log(`  setter login  → ${setterEmail}`);
 }
 
 async function ensureAuthUser(email: string, password: string): Promise<string> {
