@@ -14,6 +14,7 @@ const items = [
   { href: '/allocation', label: 'Allocation' },
   { href: '/attribution', label: 'Attribution' },
   { href: '/log', label: 'Log activity' },
+  { href: '/settings', label: 'Settings' },
 ];
 
 export function Sidebar({ email }: { email: string }) {

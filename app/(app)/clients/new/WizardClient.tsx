@@ -64,7 +64,7 @@ function FieldRow({ label, hint, children }: { label: string; hint?: string; chi
 
 const TOTAL_STEPS = 6;
 
-export default function WizardClient() {
+export default function WizardClient({ defaultPerSitFee = 75 }: { defaultPerSitFee?: number }) {
   const router = useRouter();
 
   const [step, setStep] = useState<Step>(1);
@@ -84,7 +84,7 @@ export default function WizardClient() {
     postcodes: [],
     postcodesRaw: '',
     weeklyPromise: 5,
-    perSitFee: 75,
+    perSitFee: defaultPerSitFee,
     managementMarkupPct: 20,
     priority: 100,
     loginEmail: '',

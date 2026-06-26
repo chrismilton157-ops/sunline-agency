@@ -6,9 +6,9 @@ import { getServerAdmin } from '@/lib/supabase/admin';
 import {
   appointmentsInPeriod,
   computeInvoice,
-  DEFAULT_MANAGEMENT_MARKUP_PCT,
   type InvoiceStatus,
 } from '@/lib/billing';
+import { getSettings } from '@/lib/settings';
 import {
   allocateCampaignSpend,
   rollUpByClient,
@@ -34,6 +34,7 @@ export async function generateInvoices(formData: FormData) {
   }
 
   const admin = getServerAdmin();
+  const agencySettings = await getSettings();
   const [clientsRes, apptsRes, existingRes, spendRes, leadsRes] =
     await Promise.all([
       admin
@@ -124,7 +125,7 @@ export async function generateInvoices(formData: FormData) {
     const b = computeInvoice({
       ad_spend_monthly: allocated,
       management_markup_pct:
-        Number(c.management_markup_pct ?? DEFAULT_MANAGEMENT_MARKUP_PCT),
+        Number(c.management_markup_pct ?? agencySettings.default_management_markup_pct),
       per_sit_fee: Number(c.per_sit_fee ?? 0),
       appointments_in_period: appts,
     });
