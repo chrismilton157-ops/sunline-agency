@@ -33,24 +33,23 @@ export default async function QueuePage() {
     .not('queue_claimed_by', 'is', null)
     .lt('queue_claimed_at', staleAt);
 
-  // Load queue: consented leads that aren't disqualified, newest first
+  // Load queue: consented leads that aren't disqualified, newest first.
+  // Cast via unknown to LeadQueue[] — the admin client is untyped (no DB
+  // codegen), so TypeScript sees a union that includes GenericStringError
+  // when the select string is built at runtime.
   const { data: rawLeads, error } = await admin
     .from('leads')
-    .select(
-      'id, client_id, campaign_id, name, phone, email, address, postcode, ' +
-      'monthly_bill, is_homeowner, bill_payer, roof_suitable, finance_interest, ' +
-      'consent, status, response_mins, created_at, updated_at, ' +
-      'notes, campaign_source, consent_at, consent_source, routing_rule_fired, data_retention_until, ' +
-      'no_answer_count, queue_claimed_by, queue_claimed_at',
-    )
+    .select('*')
     .eq('consent', true)
     .neq('status', 'disqualified')
     .order('created_at', { ascending: false });
 
   if (error) throw error;
 
+  const typedLeads = (rawLeads ?? []) as unknown as LeadQueue[];
+
   // Load dispositions for these leads
-  const leadIds = (rawLeads ?? []).map((l) => l.id);
+  const leadIds = typedLeads.map((l) => l.id);
   let dispositionsMap = new Map<string, CallDisposition[]>();
   if (leadIds.length > 0) {
     const { data: disps } = await admin
@@ -65,10 +64,10 @@ export default async function QueuePage() {
     }
   }
 
-  const leads: LeadQueue[] = (rawLeads ?? []).map((l) => ({
+  const leads: LeadQueue[] = typedLeads.map((l) => ({
     ...l,
     dispositions: dispositionsMap.get(l.id) ?? [],
-  })) as LeadQueue[];
+  }));
 
   const totalConsented = leads.length;
   const uncalled = leads.filter((l) => l.status === 'new').length;
