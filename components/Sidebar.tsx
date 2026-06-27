@@ -3,22 +3,29 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { logout } from '@/app/login/actions';
 
-const items = [
-  { href: '/overview', label: 'Overview' },
-  { href: '/clients', label: 'Clients' },
-  { href: '/routing', label: 'Routing' },
-  { href: '/leads', label: 'Leads' },
-  { href: '/queue', label: 'Call queue' },
+const OWNER_ITEMS = [
+  { href: '/overview',      label: 'Overview' },
+  { href: '/clients',       label: 'Clients' },
+  { href: '/routing',       label: 'Routing' },
+  { href: '/leads',         label: 'Leads' },
+  { href: '/queue',         label: 'Call queue' },
   { href: '/confirmations', label: 'Confirmations' },
-  { href: '/billing', label: 'Billing' },
-  { href: '/allocation', label: 'Allocation' },
-  { href: '/attribution', label: 'Attribution' },
-  { href: '/log', label: 'Log activity' },
-  { href: '/settings', label: 'Settings' },
+  { href: '/billing',       label: 'Billing' },
+  { href: '/allocation',    label: 'Allocation' },
+  { href: '/attribution',   label: 'Attribution' },
+  { href: '/log',           label: 'Log activity' },
+  { href: '/settings',      label: 'Settings' },
 ];
 
-export function Sidebar({ email }: { email: string }) {
+const SETTER_ITEMS = [
+  { href: '/queue', label: 'Call queue' },
+];
+
+export function Sidebar({ email, role }: { email: string; role?: string }) {
   const path = usePathname() ?? '';
+  const isSetter = role === 'setter';
+  const items = isSetter ? SETTER_ITEMS : OWNER_ITEMS;
+
   return (
     <aside className="bg-sidebar text-white md:w-60 md:min-h-screen md:sticky md:top-0
                       flex md:flex-col items-center md:items-stretch
@@ -27,7 +34,9 @@ export function Sidebar({ email }: { email: string }) {
         <div className="text-amber font-semibold text-base tracking-tight">
           Sunline
         </div>
-        <div className="text-white/50 text-xs mt-0.5">Owner</div>
+        <div className="text-white/50 text-xs mt-0.5">
+          {isSetter ? 'Setter' : 'Owner'}
+        </div>
       </div>
 
       <nav className="flex md:flex-col gap-1 flex-1 overflow-x-auto">
