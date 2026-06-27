@@ -412,6 +412,36 @@ async function main() {
       !!asErr || (asData ?? []).length === 0,
       { asErr, asData },
     );
+
+    // Phase 12 — setter can update their own avatar_url via RPC (not raw UPDATE)
+    const ownId = await setterId(setterEmail);
+    const { error: ownAvatarErr } = await setterPortal.rpc('update_own_avatar', {
+      new_url: 'https://example.com/test-avatar.jpg',
+    });
+    check(
+      'setter can call update_own_avatar RPC (updates own avatar_url)',
+      !ownAvatarErr,
+      { ownAvatarErr },
+    );
+    // Clean up — reset avatar_url so seed stays clean
+    await admin.from('users').update({ avatar_url: null }).eq('id', ownId);
+
+    // Setter cannot upload to another setter's storage folder.
+    // We verify the storage INSERT policy by checking the path constraint:
+    // any object whose first path segment != auth.uid() is rejected.
+    // We use the owner's ID as the "other" folder.
+    const { data: ownerRow } = await admin.from('users').select('id').eq('role', 'owner').limit(1).single();
+    if (ownerRow) {
+      const fakeFile = new Blob(['x'], { type: 'image/jpeg' });
+      const { error: storageErr } = await setterPortal.storage
+        .from('setter-avatars')
+        .upload(`${ownerRow.id}/fake.jpg`, fakeFile, { upsert: false });
+      check(
+        "setter cannot upload to another user's storage folder",
+        !!storageErr,
+        { storageErr: storageErr?.message },
+      );
+    }
   }
 
   if (failed > 0) {

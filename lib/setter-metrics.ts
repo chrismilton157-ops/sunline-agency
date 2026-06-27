@@ -9,6 +9,7 @@ const FORTY_EIGHT_HRS_MS = 48 * 60 * 60 * 1000;
 export type SetterRow = {
   id: string;
   email: string;
+  avatar_url: string | null;
 };
 
 export type DispositionRow = {
@@ -83,6 +84,7 @@ export type SetterOutputStats = {
   setterEmail: string;
   displayName: string;
   initials: string;
+  avatarUrl: string | null;
   dials: number;
   contacted: number;
   pickupRate: number | null;
@@ -147,6 +149,7 @@ function computeOutput(
     setterEmail: setter.email,
     displayName: displayName(setter.email),
     initials: initialsFromEmail(setter.email),
+    avatarUrl: setter.avatar_url,
     dials,
     contacted,
     pickupRate: safe(contacted, dials),

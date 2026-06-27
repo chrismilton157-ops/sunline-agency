@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getServerSupabase } from '@/lib/supabase/server';
 import { getServerAdmin } from '@/lib/supabase/admin';
-import { computeSetterOutput } from '@/lib/setter-metrics';
+import { computeSetterOutput, initialsFromEmail } from '@/lib/setter-metrics';
 import type { SetterRow, DispositionRow, ApptRow } from '@/lib/setter-metrics';
 import { LeaderboardClient } from './LeaderboardClient';
 
@@ -21,7 +21,7 @@ export default async function LeaderboardPage() {
 
   // All setter + owner accounts appear on the leaderboard
   const [settersRes, dispsRes, apptsRes] = await Promise.all([
-    admin.from('users').select('id, email').in('role', ['setter', 'owner']),
+    admin.from('users').select('id, email, avatar_url').in('role', ['setter', 'owner']),
     admin.from('call_dispositions')
       .select('id, lead_id, disposition, disqual_reason, created_by, created_at'),
     admin.from('appointments')
@@ -42,6 +42,10 @@ export default async function LeaderboardPage() {
     month: computeSetterOutput(setters, disps, appts, 'month'),
   };
 
+  const myRow = setters.find((s) => s.id === user.id);
+  const myInitials = myRow ? initialsFromEmail(myRow.email) : '??';
+  const myAvatarUrl = myRow?.avatar_url ?? null;
+
   return (
     <div className="space-y-6">
       <header>
@@ -53,7 +57,12 @@ export default async function LeaderboardPage() {
         </p>
       </header>
 
-      <LeaderboardClient byRange={byRange} myId={user.id} />
+      <LeaderboardClient
+        byRange={byRange}
+        myId={user.id}
+        myInitials={myInitials}
+        myAvatarUrl={myAvatarUrl}
+      />
     </div>
   );
 }
