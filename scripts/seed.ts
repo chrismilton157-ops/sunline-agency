@@ -12,6 +12,8 @@ const ownerEmail = required('SEED_OWNER_EMAIL');
 const ownerPassword = required('SEED_OWNER_PASSWORD');
 const clientEmail = required('SEED_CLIENT_EMAIL');
 const clientPassword = required('SEED_CLIENT_PASSWORD');
+const setterEmail = required('SEED_SETTER_EMAIL');
+const setterPassword = required('SEED_SETTER_PASSWORD');
 
 const admin = createClient(url, serviceKey, {
   auth: { autoRefreshToken: false, persistSession: false },
@@ -34,6 +36,7 @@ async function main() {
   console.log('→ Ensuring auth users exist');
   const ownerId = await ensureAuthUser(ownerEmail, ownerPassword);
   const clientLoginId = await ensureAuthUser(clientEmail, clientPassword);
+  const setterId = await ensureAuthUser(setterEmail, setterPassword);
 
   console.log('→ Inserting clients');
   const { data: clients, error: cErr } = await admin
@@ -73,11 +76,12 @@ async function main() {
   const north = clients.find((c) => c.company === 'Northwind Energy')!;
 
   console.log('→ Linking users → clients');
-  // Owner row (client_id null), client login mapped to BrightRoof.
+  // Owner row (client_id null), client login mapped to BrightRoof, setter row.
   const { error: uErr } = await admin.from('users').upsert(
     [
       { id: ownerId, email: ownerEmail, role: 'owner', client_id: null },
       { id: clientLoginId, email: clientEmail, role: 'client', client_id: bright.id },
+      { id: setterId, email: setterEmail, role: 'setter', client_id: null },
     ],
     { onConflict: 'id' },
   );
@@ -347,7 +351,84 @@ async function main() {
   ]);
   if (csErr) throw csErr;
 
+  console.log('→ Inserting setter call dispositions (Phase 11)');
+  // Realistic week of activity for the seeded setter account.
+  // Spread across today/this-week so time-range toggles work immediately.
+  const today = new Date();
+  const d = (offsetDays: number, hour: number) => {
+    const dt = new Date(today);
+    dt.setUTCDate(today.getUTCDate() + offsetDays);
+    dt.setUTCHours(hour, 0, 0, 0);
+    return dt.toISOString();
+  };
+
+  const lDaisy = leads.find((l) => l.name === 'Daisy Evans')!;
+  const lEli   = leads.find((l) => l.name === 'Eli Foster')!;
+  const lFern  = leads.find((l) => l.name === 'Fern Gould')!;
+  const lGreg  = leads.find((l) => l.name === 'Greg Hayes')!;
+  const lHana  = leads.find((l) => l.name === 'Hana Irving')!;
+
+  const { error: dispErr } = await admin.from('call_dispositions').insert([
+    // Today — 6 dials, 3 contacts, 1 booking
+    { lead_id: lAlice.id, disposition: 'no_answer',      created_by: setterId, created_at: d(0, 9) },
+    { lead_id: lBob.id,   disposition: 'no_answer',      created_by: setterId, created_at: d(0, 9) },
+    { lead_id: lCara.id,  disposition: 'callback',       created_by: setterId, created_at: d(0, 10) },
+    { lead_id: lDaisy.id, disposition: 'booked',         created_by: setterId, created_at: d(0, 10) },
+    { lead_id: lEli.id,   disposition: 'not_interested', created_by: setterId, created_at: d(0, 11) },
+    { lead_id: lFern.id,  disposition: 'no_answer',      created_by: setterId, created_at: d(0, 11) },
+    // Earlier this week — 8 dials, 4 contacts, 2 bookings
+    { lead_id: lGreg.id,  disposition: 'no_answer',      created_by: setterId, created_at: d(-1, 9) },
+    { lead_id: lHana.id,  disposition: 'disqualified',   disqual_reason: 'not_homeowner', created_by: setterId, created_at: d(-1, 10) },
+    { lead_id: lAlice.id, disposition: 'booked',         created_by: setterId, created_at: d(-1, 11) },
+    { lead_id: lBob.id,   disposition: 'no_answer',      created_by: setterId, created_at: d(-1, 13) },
+    { lead_id: lCara.id,  disposition: 'booked',         created_by: setterId, created_at: d(-2, 9) },
+    { lead_id: lDaisy.id, disposition: 'not_interested', created_by: setterId, created_at: d(-2, 10) },
+    { lead_id: lEli.id,   disposition: 'no_answer',      created_by: setterId, created_at: d(-2, 11) },
+    { lead_id: lFern.id,  disposition: 'callback',       created_by: setterId, created_at: d(-2, 14) },
+  ]);
+  if (dispErr) throw dispErr;
+
+  console.log('→ Inserting setter appointments (Phase 11)');
+  // Appointments booked by the setter — some already occurred so quality stats show up.
+  const apptD = (offsetDays: number) => {
+    const dt = new Date(today);
+    dt.setUTCDate(today.getUTCDate() + offsetDays);
+    dt.setUTCHours(14, 0, 0, 0);
+    return dt.toISOString();
+  };
+
+  const { error: saErr } = await admin.from('appointments').insert([
+    // Past sits — 3 occurred: 2 sat (1 confirmed, 1 unconfirmed), 1 no_show
+    {
+      lead_id: lDaisy.id, client_id: bright.id,
+      appt_date: apptD(-14), confirmed_at: new Date(new Date(apptD(-14)).getTime() - 24 * 3600000).toISOString(),
+      setter: setterEmail, setter_id: setterId,
+      outcome: 'sat', quality_rating: 'up', invoiced: false,
+    },
+    {
+      lead_id: lEli.id, client_id: bright.id,
+      appt_date: apptD(-10), confirmed_at: null,
+      setter: setterEmail, setter_id: setterId,
+      outcome: 'no_show', quality_rating: 'down', quality_reason: 'lead unqualified', invoiced: false,
+    },
+    {
+      lead_id: lFern.id, client_id: bright.id,
+      appt_date: apptD(-5), confirmed_at: new Date(new Date(apptD(-5)).getTime() - 24 * 3600000).toISOString(),
+      setter: setterEmail, setter_id: setterId,
+      outcome: 'sold', sale_value: 9200, quality_rating: 'up', invoiced: false,
+    },
+    // Upcoming booked sit (not yet occurred)
+    {
+      lead_id: lGreg.id, client_id: north.id,
+      appt_date: apptD(3), confirmed_at: null,
+      setter: setterEmail, setter_id: setterId,
+      outcome: 'booked', invoiced: false,
+    },
+  ]);
+  if (saErr) throw saErr;
+
   console.log('✓ Seed complete');
+  console.log(`  setter login  → ${setterEmail}`);
   console.log(`  owner login   → ${ownerEmail}`);
   console.log(`  client login  → ${clientEmail}  (BrightRoof Solar)`);
 }

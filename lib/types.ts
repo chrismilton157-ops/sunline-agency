@@ -23,6 +23,7 @@ export type Appointment = {
   lead_id: string;
   appt_date: string;
   setter: string | null;
+  setter_id: string | null;
   outcome: Outcome;
   sale_value: number | null;
   invoiced: boolean;
