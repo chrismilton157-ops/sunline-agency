@@ -11,7 +11,7 @@ const CLIENT_SAFE_COLS =
   'id, company, contact, region, retainer, per_sit_fee, status, joined_at';
 
 const APPT_COLS =
-  'id, client_id, lead_id, appt_date, setter, outcome, sale_value, invoiced, quality_rating, quality_reason, confirmed_at';
+  'id, client_id, lead_id, appt_date, setter, setter_id, outcome, sale_value, invoiced, quality_rating, quality_reason, confirmed_at';
 
 const LEAD_COLS = 'id, client_id, name, address, response_mins, consent';
 

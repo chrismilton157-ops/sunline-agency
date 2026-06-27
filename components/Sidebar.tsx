@@ -9,6 +9,7 @@ const OWNER_ITEMS = [
   { href: '/routing',       label: 'Routing' },
   { href: '/leads',         label: 'Leads' },
   { href: '/queue',         label: 'Call queue' },
+  { href: '/setters',       label: 'Setters' },
   { href: '/confirmations', label: 'Confirmations' },
   { href: '/billing',       label: 'Billing' },
   { href: '/allocation',    label: 'Allocation' },
@@ -18,7 +19,8 @@ const OWNER_ITEMS = [
 ];
 
 const SETTER_ITEMS = [
-  { href: '/queue', label: 'Call queue' },
+  { href: '/queue',       label: 'Call queue' },
+  { href: '/leaderboard', label: 'Leaderboard' },
 ];
 
 export function Sidebar({ email, role }: { email: string; role?: string }) {

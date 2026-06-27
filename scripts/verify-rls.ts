@@ -18,6 +18,8 @@ const ownerEmail = req('SEED_OWNER_EMAIL');
 const ownerPassword = req('SEED_OWNER_PASSWORD');
 const clientEmail = req('SEED_CLIENT_EMAIL');
 const clientPassword = req('SEED_CLIENT_PASSWORD');
+const setterEmail = req('SEED_SETTER_EMAIL');
+const setterPassword = req('SEED_SETTER_PASSWORD');
 
 const admin = createClient(url, service, {
   auth: { autoRefreshToken: false, persistSession: false },
@@ -31,6 +33,7 @@ async function main() {
 
   const ownerClient = await signedInClient(ownerEmail, ownerPassword);
   const clientPortal = await signedInClient(clientEmail, clientPassword);
+  const setterPortal = await signedInClient(setterEmail, setterPassword);
 
   let failed = 0;
   const check = (label: string, pass: boolean, detail?: unknown) => {
@@ -305,11 +308,130 @@ async function main() {
     }
   }
 
+  // -----------------------------------------------------------------------
+  // Phase 11 — Setter role: can see own users row, cannot see any business
+  // data or owner-only quality/money fields.
+  // -----------------------------------------------------------------------
+  console.log('Setter view (setter@sunline.test):');
+  {
+    // Can read own users row (users_read_self policy)
+    const { data: selfRow, error: selfErr } = await setterPortal
+      .from('users').select('id, role').eq('id', await setterId(setterEmail));
+    check(
+      'setter can read their own users row',
+      !selfErr && (selfRow?.length ?? 0) === 1,
+      { selfErr, selfRow },
+    );
+
+    // Cannot read other users rows (owner-only via users_owner_all)
+    const { data: allUsers } = await setterPortal
+      .from('users').select('id, email');
+    check(
+      'setter cannot read other users rows (only own)',
+      (allUsers ?? []).length <= 1,
+      allUsers,
+    );
+
+    // Cannot read any appointments (no matching RLS policy for setter role)
+    const { data: apptData, error: apptErr } = await setterPortal
+      .from('appointments').select('id, outcome, quality_rating');
+    check(
+      'setter cannot read appointments (no RLS policy for setter)',
+      !!apptErr || (apptData ?? []).length === 0,
+      { apptErr, apptData },
+    );
+
+    // Cannot read quality_rating specifically (belt-and-braces: no rows at all)
+    const { data: qrData, error: qrErr } = await setterPortal
+      .from('appointments').select('id, quality_rating').limit(1);
+    check(
+      'setter cannot read appointments.quality_rating (no RLS rows)',
+      !!qrErr || (qrData ?? []).length === 0,
+      { qrErr, qrData },
+    );
+
+    // Cannot read call_dispositions (table-level SELECT revoked in 0009)
+    const { data: cdData, error: cdErr } = await setterPortal
+      .from('call_dispositions').select('id, disposition');
+    check(
+      'setter cannot read call_dispositions (table-level revoke)',
+      !!cdErr || (cdData ?? []).length === 0,
+      { cdErr, cdData },
+    );
+
+    // Cannot read clients table (owner-all + client-read-own; setter has neither)
+    const { data: clData, error: clErr } = await setterPortal
+      .from('clients').select('id, company');
+    check(
+      'setter cannot read any clients rows',
+      !!clErr || (clData ?? []).length === 0,
+      { clErr, clData },
+    );
+
+    // Cannot read any leads rows (owner-all + client-read-own; setter client_id is null)
+    const { data: ldData, error: ldErr } = await setterPortal
+      .from('leads').select('id').limit(5);
+    check(
+      'setter cannot read any leads rows (RLS: setter has no client_id)',
+      !!ldErr || (ldData ?? []).length === 0,
+      { ldErr, ldData },
+    );
+
+    // Cannot read invoices
+    const { data: invData, error: invErr } = await setterPortal
+      .from('invoices').select('id, total');
+    check(
+      'setter cannot read any invoices rows',
+      !!invErr || (invData ?? []).length === 0,
+      { invErr, invData },
+    );
+
+    // Cannot read campaign_spend (table-level revoke)
+    const { data: csData, error: csErr } = await setterPortal
+      .from('campaign_spend').select('campaign_id, amount');
+    check(
+      'setter cannot read campaign_spend (table-level revoke)',
+      !!csErr || (csData ?? []).length === 0,
+      { csErr, csData },
+    );
+
+    // Cannot read confirmation_attempts (table-level revoke in 0010)
+    const { data: caData, error: caErr } = await setterPortal
+      .from('confirmation_attempts').select('id');
+    check(
+      'setter cannot read confirmation_attempts (table-level revoke)',
+      !!caErr || (caData ?? []).length === 0,
+      { caErr, caData },
+    );
+
+    // Cannot read agency_settings (owner-only table)
+    const { data: asData, error: asErr } = await setterPortal
+      .from('agency_settings').select('id');
+    check(
+      'setter cannot read agency_settings',
+      !!asErr || (asData ?? []).length === 0,
+      { asErr, asData },
+    );
+  }
+
   if (failed > 0) {
     console.log(`\n${failed} check(s) failed`);
     process.exit(1);
   }
   console.log('\nAll RLS checks passed.');
+}
+
+async function setterId(email: string): Promise<string> {
+  let page = 1;
+  while (true) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) throw error;
+    const found = data.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+    if (found) return found.id;
+    if (data.users.length < 200) break;
+    page += 1;
+  }
+  throw new Error(`User not found: ${email}`);
 }
 
 async function signedInClient(email: string, password: string) {

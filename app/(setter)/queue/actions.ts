@@ -114,6 +114,7 @@ export async function submitDisposition(formData: FormData) {
         client_id: clientId,
         appt_date: new Date(apptDate).toISOString(),
         setter: user.email,
+        setter_id: user.id,
         outcome: 'booked',
       });
       if (apptErr) throw apptErr;
@@ -195,6 +196,7 @@ export async function submitWrapUp(formData: FormData) {
         client_id: clientId,
         appt_date: new Date(apptDate).toISOString(),
         setter: user.email,
+        setter_id: user.id,
         outcome: 'booked',
       });
       if (apptErr) throw apptErr;
