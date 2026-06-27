@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { fmtPct, fmtInt } from '@/lib/format';
 import { SETTER_BENCHMARKS } from '@/lib/setter-metrics';
 import type { SetterQualityStats } from '@/lib/setter-metrics';
+import { Avatar } from '@/components/Avatar';
 
 type Range = 'today' | 'week' | 'month';
 
@@ -72,11 +73,13 @@ export function SettersClient({ byRange }: Props) {
               const bgColor = actualRank === 1 ? 'bg-amber' : actualRank === 2 ? 'bg-hairline' : 'bg-hairline/60';
               return (
                 <div key={s.setterId} className="flex flex-col items-center gap-2 w-28">
-                  <div className={`w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold
-                    ${s.qualityFlag ? 'ring-2 ring-bad ring-offset-2' : ''}
-                    ${actualRank === 1 ? 'bg-amber/20 text-amber' : 'bg-hairline/40 text-muted'}`}>
-                    {s.initials}
-                  </div>
+                  <Avatar
+                    avatarUrl={s.avatarUrl}
+                    initials={s.initials}
+                    sizeCls="w-14 h-14 text-lg"
+                    ring={s.qualityFlag ? 'bad' : null}
+                    rankFirst={actualRank === 1}
+                  />
                   <div className="text-center">
                     <div className="text-xs font-medium truncate w-28 text-center">{s.displayName}</div>
                     <div className="num text-sm font-semibold">{fmtInt(s.bookings)} booked</div>
@@ -125,9 +128,12 @@ export function SettersClient({ byRange }: Props) {
                       <td className="px-4 py-3 text-muted num">{i + 1}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full bg-hairline/40 flex items-center justify-center text-xs font-medium">
-                            {s.initials}
-                          </div>
+                          <Avatar
+                            avatarUrl={s.avatarUrl}
+                            initials={s.initials}
+                            sizeCls="w-7 h-7 text-xs"
+                            ring={s.qualityFlag ? 'bad' : null}
+                          />
                           <div>
                             <div className="font-medium">{s.displayName}</div>
                             <div className="text-xs text-muted">{s.setterEmail}</div>
@@ -178,9 +184,11 @@ export function SettersClient({ byRange }: Props) {
             {ranked.filter((s) => s.disqualCount > 0).map((s) => (
               <div key={s.setterId} className="rounded-xl border border-hairline p-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <div className="w-8 h-8 rounded-full bg-hairline/40 flex items-center justify-center text-xs font-medium">
-                    {s.initials}
-                  </div>
+                  <Avatar
+                    avatarUrl={s.avatarUrl}
+                    initials={s.initials}
+                    sizeCls="w-8 h-8 text-xs"
+                  />
                   <div>
                     <div className="text-sm font-medium">{s.displayName}</div>
                     <div className="text-xs text-muted">{s.disqualCount} disquals total</div>

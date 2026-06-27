@@ -15,7 +15,7 @@ export default async function SettersPage() {
   const admin = getServerAdmin();
 
   const [settersRes, dispsRes, apptsRes] = await Promise.all([
-    admin.from('users').select('id, email').in('role', ['setter', 'owner']),
+    admin.from('users').select('id, email, avatar_url').in('role', ['setter', 'owner']),
     admin.from('call_dispositions')
       .select('id, lead_id, disposition, disqual_reason, created_by, created_at'),
     admin.from('appointments')

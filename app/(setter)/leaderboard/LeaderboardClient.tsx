@@ -3,15 +3,19 @@ import { useState } from 'react';
 import { fmtPct, fmtInt } from '@/lib/format';
 import { SETTER_BENCHMARKS } from '@/lib/setter-metrics';
 import type { SetterOutputStats } from '@/lib/setter-metrics';
+import { Avatar } from '@/components/Avatar';
+import { ProfilePhotoUpload } from './ProfilePhotoUpload';
 
 type Range = 'today' | 'week' | 'month';
 
 type Props = {
   byRange: Record<Range, SetterOutputStats[]>;
   myId: string;
+  myInitials: string;
+  myAvatarUrl: string | null;
 };
 
-export function LeaderboardClient({ byRange, myId }: Props) {
+export function LeaderboardClient({ byRange, myId, myInitials, myAvatarUrl }: Props) {
   const [range, setRange] = useState<Range>('week');
   const stats = byRange[range];
 
@@ -54,6 +58,14 @@ export function LeaderboardClient({ byRange, myId }: Props) {
         <section>
           <h2 className="text-base font-semibold mb-3">My stats</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {/* Profile photo upload — spans 1 cell on mobile, stays compact */}
+            <div className="border border-hairline rounded-xl p-4 flex flex-col items-center justify-center gap-1">
+              <ProfilePhotoUpload
+                userId={myId}
+                initials={myInitials}
+                currentAvatarUrl={myAvatarUrl}
+              />
+            </div>
             <StatBox label="Dials" value={fmtInt(me.dials)} />
             <StatBox label="Contacts" value={fmtInt(me.contacted)} />
             <StatBox label="Bookings" value={fmtInt(me.bookings)} highlight />
@@ -66,7 +78,7 @@ export function LeaderboardClient({ byRange, myId }: Props) {
             <StatBox label="Confirmation rate" value={fmtPct(me.confirmationRate)}
               sub={`Target ${fmtPct(SETTER_BENCHMARKS.targetConfirmationRate)}`}
               good={me.confirmationRate != null && me.confirmationRate >= SETTER_BENCHMARKS.targetConfirmationRate} />
-            <div className="bg-amber/10 border border-amber/30 rounded-xl p-4 text-center col-span-2">
+            <div className="bg-amber/10 border border-amber/30 rounded-xl p-4 text-center col-span-2 md:col-span-1">
               <div className="text-3xl font-bold num text-amber">#{myRank}</div>
               <div className="text-xs text-muted mt-1">Leaderboard rank</div>
             </div>
@@ -81,20 +93,20 @@ export function LeaderboardClient({ byRange, myId }: Props) {
             Top setters — {range === 'today' ? 'today' : range === 'week' ? 'this week' : 'this month'}
           </h2>
           <div className="flex items-end justify-center gap-4 mb-6">
-            {podiumOrder.map((s, idx) => {
+            {podiumOrder.map((s) => {
               const actualRank = ranked.indexOf(s) + 1;
               const height = actualRank === 1 ? 'h-28' : actualRank === 2 ? 'h-20' : 'h-14';
               const bgColor = actualRank === 1 ? 'bg-amber' : actualRank === 2 ? 'bg-hairline' : 'bg-hairline/60';
               const isMe = s.setterId === myId;
               return (
                 <div key={s.setterId} className="flex flex-col items-center gap-2 w-28">
-                  <div
-                    className={`w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold
-                      ${isMe ? 'ring-2 ring-amber ring-offset-2' : ''}
-                      ${actualRank === 1 ? 'bg-amber/20 text-amber' : 'bg-hairline/40 text-muted'}`}
-                  >
-                    {s.initials}
-                  </div>
+                  <Avatar
+                    avatarUrl={s.avatarUrl}
+                    initials={s.initials}
+                    sizeCls="w-14 h-14 text-lg"
+                    ring={isMe ? 'amber' : null}
+                    rankFirst={actualRank === 1}
+                  />
                   <div className="text-center">
                     <div className="text-xs font-medium truncate w-28 text-center">{s.displayName}</div>
                     <div className="num text-sm font-semibold">{fmtInt(s.bookings)} booked</div>
@@ -135,9 +147,12 @@ export function LeaderboardClient({ byRange, myId }: Props) {
                       <td className="px-4 py-3 text-muted num">{i + 1}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full bg-hairline/40 flex items-center justify-center text-xs font-medium">
-                            {s.initials}
-                          </div>
+                          <Avatar
+                            avatarUrl={s.avatarUrl}
+                            initials={s.initials}
+                            sizeCls="w-7 h-7 text-xs"
+                            ring={isMe ? 'amber' : null}
+                          />
                           <span>{s.displayName}</span>
                           {isMe && <span className="text-xs text-amber font-medium">you</span>}
                         </div>
