@@ -114,6 +114,27 @@ export type LeadQueue = LeadOwner & {
   dispositions: CallDisposition[];
 };
 
+// ---------- Phase 10: qualifying wrap-up ----------
+
+export type MonthlyBillBand =
+  | 'band_0_50' | 'band_50_100' | 'band_100_150' | 'band_150_200' | 'band_200_plus';
+
+export type IncomeStatus =
+  | 'employed_paye' | 'self_employed' | 'self_funded_retiree'
+  | 'state_pension_only' | 'no_income';
+
+export type SolarIntention = 'replace' | 'add_on';
+
+export type RoofType =
+  | 'pitched_tiles' | 'pitched_slate' | 'flat' | 'metal' | 'other' | 'not_suitable';
+
+export type CreditStatus =
+  | 'good' | 'fair' | 'poor_declined' | 'cash_buyer' | 'not_eligible';
+
+export type WrapDisqualReason =
+  | 'not_homeowner' | 'income_ineligible' | 'decision_maker_unavailable'
+  | 'roof_unsuitable' | 'credit_affordability';
+
 // ---------- Phase 9: confirmation queue ----------
 
 export type ConfirmationAttempt = {

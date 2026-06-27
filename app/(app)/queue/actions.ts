@@ -122,3 +122,84 @@ export async function submitDisposition(formData: FormData) {
 
   revalidatePath('/queue');
 }
+
+export async function submitWrapUp(formData: FormData) {
+  const { user } = await getStaffUser();
+  const admin = getServerAdmin();
+
+  const leadId = formData.get('lead_id') as string;
+  const disqualReason = (formData.get('wrap_disqual_reason') as string) || null;
+  const isDisqualified = !!disqualReason;
+  const notes = (formData.get('notes') as string) || null;
+
+  if (!leadId) throw new Error('Missing lead_id');
+
+  const { data: currentLead } = await admin
+    .from('leads')
+    .select('client_id')
+    .eq('id', leadId)
+    .single();
+
+  // Record the disposition
+  const { error: dispErr } = await admin.from('call_dispositions').insert({
+    lead_id: leadId,
+    disposition: isDisqualified ? 'disqualified' : 'booked',
+    disqual_reason: disqualReason,
+    notes,
+    created_by: user.id,
+  });
+  if (dispErr) throw dispErr;
+
+  // Helpers to read nullable typed fields from FormData
+  const str = (key: string) => (formData.get(key) as string) || null;
+  const bool = (key: string): boolean | null => {
+    const v = formData.get(key);
+    if (v === null || v === '') return null;
+    return v === 'true';
+  };
+  const num = (key: string): number | null => {
+    const v = formData.get(key) as string;
+    if (!v) return null;
+    const n = parseFloat(v);
+    return isNaN(n) ? null : n;
+  };
+
+  // Update lead: qualifying fields + status + release claim
+  const { error: leadErr } = await admin.from('leads').update({
+    is_homeowner:                bool('is_homeowner'),
+    already_has_solar:           bool('already_has_solar'),
+    existing_system_size_kw:     num('existing_system_size_kw'),
+    existing_system_age_years:   num('existing_system_age_years'),
+    solar_intention:             str('solar_intention'),
+    monthly_bill_band:           str('monthly_bill_band'),
+    income_status:               str('income_status'),
+    all_decision_makers_present: bool('all_decision_makers_present'),
+    co_owner_available:          bool('co_owner_available'),
+    roof_type:                   str('roof_type'),
+    credit_status:               str('credit_status'),
+    wrap_disqual_reason:         disqualReason,
+    wrap_up_completed_at:        new Date().toISOString(),
+    queue_claimed_by:            null,
+    queue_claimed_at:            null,
+    status:                      isDisqualified ? 'disqualified' : 'booked',
+  }).eq('id', leadId);
+  if (leadErr) throw leadErr;
+
+  // Create appointment only when qualified
+  if (!isDisqualified) {
+    const apptDate = formData.get('appt_date') as string;
+    const clientId = currentLead?.client_id as string | null;
+    if (apptDate && clientId) {
+      const { error: apptErr } = await admin.from('appointments').insert({
+        lead_id: leadId,
+        client_id: clientId,
+        appt_date: new Date(apptDate).toISOString(),
+        setter: user.email,
+        outcome: 'booked',
+      });
+      if (apptErr) throw apptErr;
+    }
+  }
+
+  revalidatePath('/queue');
+}

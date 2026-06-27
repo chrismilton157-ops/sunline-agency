@@ -2,7 +2,13 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import type { LeadQueue, CallDispositionType } from '@/lib/types';
-import { claimLead, releaseLead, submitDisposition } from './actions';
+import { claimLead, releaseLead, submitDisposition, submitWrapUp } from './actions';
+import { WrapUpWizard } from './WrapUpWizard';
+
+// No-contact outcomes: one tap → submit → auto-advance to next lead
+const NO_CONTACT: ReadonlySet<CallDispositionType> = new Set([
+  'no_answer', 'wrong_number', 'callback', 'not_interested',
+]);
 
 const DISPOSITION_LABELS: Record<CallDispositionType, string> = {
   no_answer:      'No answer',
@@ -12,6 +18,12 @@ const DISPOSITION_LABELS: Record<CallDispositionType, string> = {
   disqualified:   'Disqualified',
   booked:         'Booked ✓',
 };
+
+// Disposition buttons shown in the normal outcome form
+// 'booked' is intentionally excluded — it launches the wrap-up wizard instead
+const NORMAL_DISPOSITIONS: CallDispositionType[] = [
+  'no_answer', 'callback', 'not_interested', 'wrong_number', 'disqualified',
+];
 
 const POLL_INTERVAL_MS = 20_000;
 
@@ -40,6 +52,7 @@ export function QueueClient({ leads, userId }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [disposition, setDisposition] = useState<CallDispositionType | ''>('');
+  const [showWrapUp, setShowWrapUp] = useState(false);
   const [activeLead, setActiveLead] = useState<LeadQueue | null>(
     () => leads.find((l) => l.queue_claimed_by === userId) ?? null,
   );
@@ -48,7 +61,10 @@ export function QueueClient({ leads, userId }: Props) {
   useEffect(() => {
     const refreshed = leads.find((l) => l.queue_claimed_by === userId) ?? null;
     setActiveLead(refreshed);
-    if (!refreshed) setDisposition('');
+    if (!refreshed) {
+      setDisposition('');
+      setShowWrapUp(false);
+    }
   }, [leads, userId]);
 
   // Poll for new leads every 20 s
@@ -63,7 +79,7 @@ export function QueueClient({ leads, userId }: Props) {
     l.queue_claimed_at !== null &&
     new Date(l.queue_claimed_at).getTime() < staleThreshold;
 
-  const isMine = (l: LeadQueue) => l.queue_claimed_by === userId;
+  const isMine   = (l: LeadQueue) => l.queue_claimed_by === userId;
   const isLocked = (l: LeadQueue) =>
     l.queue_claimed_by !== null && !isMine(l) && !isStale(l);
 
@@ -76,18 +92,41 @@ export function QueueClient({ leads, userId }: Props) {
   function handleRelease() {
     if (!activeLead) return;
     setDisposition('');
+    setShowWrapUp(false);
     startTransition(async () => {
       await releaseLead(activeLead.id);
     });
   }
 
   const formRef = useRef<HTMLFormElement>(null);
+
   function handleDispositionSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!disposition) return;
     const fd = new FormData(formRef.current!);
+    const isNoContact = NO_CONTACT.has(disposition as CallDispositionType);
+    const currentLeadId = activeLead?.id;
     startTransition(async () => {
       await submitDisposition(fd);
+      setDisposition('');
+      if (isNoContact) {
+        // Auto-advance: claim the next unclaimed lead in the queue
+        const next = leads.find(
+          (l) =>
+            l.id !== currentLeadId &&
+            l.queue_claimed_by === null &&
+            l.status !== 'booked' &&
+            l.status !== 'disqualified',
+        );
+        if (next) await claimLead(next.id);
+      }
+    });
+  }
+
+  function handleWrapUpComplete(fd: FormData) {
+    startTransition(async () => {
+      await submitWrapUp(fd);
+      setShowWrapUp(false);
       setDisposition('');
     });
   }
@@ -107,7 +146,7 @@ export function QueueClient({ leads, userId }: Props) {
           </div>
         )}
         {queueLeads.map((lead, idx) => {
-          const mine = isMine(lead);
+          const mine   = isMine(lead);
           const locked = isLocked(lead);
           return (
             <div
@@ -270,7 +309,7 @@ export function QueueClient({ leads, userId }: Props) {
 
             {activeLead.notes && (
               <div className="text-xs text-muted italic border-l-2 border-hairline pl-3">
-                "{activeLead.notes}"
+                &ldquo;{activeLead.notes}&rdquo;
               </div>
             )}
 
@@ -310,101 +349,101 @@ export function QueueClient({ leads, userId }: Props) {
               </div>
             )}
 
-            {/* Disposition form */}
+            {/* ── Outcome section ──────────────────────────────────────────── */}
             <div className="border-t border-hairline pt-5">
-              <div className="text-xs font-semibold text-ink mb-3 uppercase tracking-wide">
-                Call outcome
-              </div>
-              <form ref={formRef} onSubmit={handleDispositionSubmit} className="space-y-4">
-                <input type="hidden" name="lead_id" value={activeLead.id} />
+              {showWrapUp ? (
+                /* Wrap-up wizard replaces the normal outcome form */
+                <WrapUpWizard
+                  lead={activeLead}
+                  onComplete={handleWrapUpComplete}
+                  onCancel={() => setShowWrapUp(false)}
+                  isPending={isPending}
+                />
+              ) : (
+                /* Normal outcome form for no-contact dispositions */
+                <form ref={formRef} onSubmit={handleDispositionSubmit} className="space-y-4">
+                  <div className="text-xs font-semibold text-ink mb-3 uppercase tracking-wide">
+                    Call outcome
+                  </div>
+                  <input type="hidden" name="lead_id" value={activeLead.id} />
 
-                {/* Disposition grid — big tap targets */}
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {(Object.keys(DISPOSITION_LABELS) as CallDispositionType[]).map((key) => (
+                  {/* No-contact disposition buttons */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {NORMAL_DISPOSITIONS.map((key) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setDisposition(key)}
+                        className={`px-3 py-3 rounded-lg border text-sm font-medium text-left transition-colors
+                          ${disposition === key
+                            ? key === 'disqualified'
+                              ? 'bg-bad/10 text-bad border-bad/40'
+                              : 'bg-amber/10 text-amber border-amber/40'
+                            : 'bg-bg border-hairline text-ink hover:border-ink/30'
+                          }`}
+                      >
+                        {DISPOSITION_LABELS[key]}
+                      </button>
+                    ))}
+
+                    {/* Booked launches the wrap-up wizard directly */}
                     <button
-                      key={key}
                       type="button"
-                      onClick={() => setDisposition(key)}
-                      className={`px-3 py-3 rounded-lg border text-sm font-medium text-left transition-colors
-                        ${disposition === key
-                          ? key === 'booked'
-                            ? 'bg-good text-white border-good'
-                            : key === 'disqualified' || key === 'not_interested' || key === 'wrong_number'
-                            ? 'bg-bad/10 text-bad border-bad/40'
-                            : 'bg-amber/10 text-amber border-amber/40'
-                          : 'bg-bg border-hairline text-ink hover:border-ink/30'
-                        }`}
+                      onClick={() => setShowWrapUp(true)}
+                      className="px-3 py-3 rounded-lg border text-sm font-medium text-left transition-colors
+                                 bg-good/10 text-good border-good/40 hover:bg-good/20"
                     >
-                      {DISPOSITION_LABELS[key]}
+                      {DISPOSITION_LABELS.booked}
                     </button>
-                  ))}
-                </div>
-
-                {/* Hidden select carries the value for FormData */}
-                <input type="hidden" name="disposition" value={disposition} />
-
-                {/* Conditional fields */}
-                {disposition === 'callback' && (
-                  <div>
-                    <label className="block text-xs text-muted mb-1">Callback date &amp; time</label>
-                    <input
-                      type="datetime-local"
-                      name="callback_at"
-                      required
-                      className="input w-full md:w-64"
-                    />
                   </div>
-                )}
 
-                {disposition === 'disqualified' && (
-                  <div>
-                    <label className="block text-xs text-muted mb-1">Reason (optional)</label>
-                    <input
-                      type="text"
-                      name="disqual_reason"
-                      placeholder="e.g. renting, flat roof, no interest"
-                      className="input w-full md:w-80"
-                    />
-                  </div>
-                )}
+                  <input type="hidden" name="disposition" value={disposition} />
 
-                {disposition === 'booked' && (
-                  <div className="space-y-3 p-4 rounded-lg bg-good/5 border border-good/20">
-                    <div className="text-xs font-semibold text-good">Appointment details</div>
+                  {/* Conditional fields for no-contact outcomes */}
+                  {disposition === 'callback' && (
                     <div>
-                      <label className="block text-xs text-muted mb-1">Date &amp; time</label>
+                      <label className="block text-xs text-muted mb-1">Callback date &amp; time</label>
                       <input
                         type="datetime-local"
-                        name="appt_date"
+                        name="callback_at"
                         required
                         className="input w-full md:w-64"
                       />
                     </div>
-                    <p className="text-xs text-muted">
-                      Address confirmed: {activeLead.address ?? activeLead.postcode ?? '—'}
-                    </p>
+                  )}
+
+                  {disposition === 'disqualified' && (
+                    <div>
+                      <label className="block text-xs text-muted mb-1">Reason (optional)</label>
+                      <input
+                        type="text"
+                        name="disqual_reason"
+                        placeholder="e.g. renting, flat roof, no interest"
+                        className="input w-full md:w-80"
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs text-muted mb-1">Notes (optional)</label>
+                    <input
+                      type="text"
+                      name="notes"
+                      placeholder="Anything useful for the next call…"
+                      className="input w-full md:w-96"
+                    />
                   </div>
-                )}
 
-                <div>
-                  <label className="block text-xs text-muted mb-1">Notes (optional)</label>
-                  <input
-                    type="text"
-                    name="notes"
-                    placeholder="Anything useful for the next call…"
-                    className="input w-full md:w-96"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={!disposition || isPending}
-                  className="px-6 py-2.5 rounded-lg bg-ink text-white text-sm font-medium
-                             hover:bg-ink/80 disabled:opacity-40 transition-colors"
-                >
-                  {isPending ? 'Saving…' : 'Save & next →'}
-                </button>
-              </form>
+                  <button
+                    type="submit"
+                    disabled={!disposition || isPending}
+                    className="px-6 py-2.5 rounded-lg bg-ink text-white text-sm font-medium
+                               hover:bg-ink/80 disabled:opacity-40 transition-colors"
+                  >
+                    {isPending ? 'Saving…' : 'Save & next →'}
+                  </button>
+                </form>
+              )}
             </div>
           </div>
         )}
