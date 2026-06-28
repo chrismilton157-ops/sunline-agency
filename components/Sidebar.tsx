@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { logout } from '@/app/login/actions';
 
 const OWNER_ITEMS = [
+  { href: '/today',         label: 'Today' },
   { href: '/overview',      label: 'Overview' },
   { href: '/clients',       label: 'Clients' },
   { href: '/routing',       label: 'Routing' },
