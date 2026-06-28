@@ -276,9 +276,12 @@ export default async function TodayPage() {
             ))}
           </ul>
         )}
-        <div className="px-5 py-3 border-t border-hairline">
+        <div className="px-5 py-3 border-t border-hairline flex items-center justify-between">
+          <Link href="/alerts" className="text-xs text-muted hover:text-amber transition-colors">
+            View all alerts →
+          </Link>
           <Link href="/overview" className="text-xs text-muted hover:text-amber transition-colors">
-            View full overview →
+            Full overview →
           </Link>
         </div>
       </section>
