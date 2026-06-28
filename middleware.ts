@@ -59,7 +59,7 @@ export async function middleware(request: NextRequest) {
     url.pathname =
       row?.role === 'client' ? '/portal' :
       row?.role === 'setter' ? '/queue' :
-      '/overview';
+      '/today';
     return NextResponse.redirect(url);
   }
 
