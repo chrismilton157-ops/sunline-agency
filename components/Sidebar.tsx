@@ -5,6 +5,7 @@ import { logout } from '@/app/login/actions';
 
 const OWNER_ITEMS = [
   { href: '/today',         label: 'Today' },
+  { href: '/alerts',        label: 'Alerts' },
   { href: '/overview',      label: 'Overview' },
   { href: '/clients',       label: 'Clients' },
   { href: '/routing',       label: 'Routing' },
