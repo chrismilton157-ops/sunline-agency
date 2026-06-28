@@ -18,6 +18,7 @@ const OWNER_ITEMS = [
   { href: '/attribution',   label: 'Attribution' },
   { href: '/log',           label: 'Log activity' },
   { href: '/settings',      label: 'Settings' },
+  { href: '/enquiries',     label: 'Enquiries' },
 ];
 
 const SETTER_ITEMS = [
