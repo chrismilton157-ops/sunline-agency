@@ -35,8 +35,12 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const isLogin = path.startsWith('/login');
   // Phase 5: /apply (public lead form) and /privacy are public-by-design.
+  // Phase 15: "/" (installer marketing landing) and /enquiry (form submission) are public.
   const isPublic =
-    path.startsWith('/apply') || path.startsWith('/privacy');
+    path === '/' ||
+    path.startsWith('/enquiry') ||
+    path.startsWith('/apply') ||
+    path.startsWith('/privacy');
   const isPublicAsset =
     path.startsWith('/_next') ||
     path.startsWith('/favicon') ||
