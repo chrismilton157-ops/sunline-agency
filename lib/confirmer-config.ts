@@ -32,3 +32,36 @@ export const CALL_CHECKLIST = [
   'Confirm the address is still correct',
   'Ask if there is anything that might affect the visit',
 ] as const;
+
+export const RESCHEDULE_REASONS = [
+  { value: 'homeowner_busy',             label: 'Homeowner busy / away' },
+  { value: 'decision_maker_unavailable', label: "Decision-maker can't make it" },
+  { value: 'weather_illness',            label: 'Weather or illness' },
+  { value: 'installer_requested',        label: 'Installer requested change' },
+  { value: 'wants_more_time',            label: 'Wants more time to think' },
+  { value: 'other',                      label: 'Other (add note)' },
+] as const;
+export type RescheduleReasonValue = (typeof RESCHEDULE_REASONS)[number]['value'];
+
+export const SNOOZE_OPTIONS = [
+  { value: 120,  label: '2 hours' },
+  { value: 240,  label: 'This afternoon (4h)' },
+  { value: 1440, label: 'Tomorrow' },
+] as const;
+
+// SMS templates are in the DB (sms_templates table) so they are editable.
+// This is a fallback for when the DB has not loaded yet.
+export const DEFAULT_SMS_TEMPLATES = [
+  { name: 'Confirmation', body: 'Hi {name}, just confirming your free solar survey on {date} at {time}. Reply or call if anything changes!' },
+  { name: 'Reminder',     body: 'Hi {name}, reminder — your solar survey is tomorrow at {time}. See you then!' },
+  { name: 'Missed call',  body: 'Hi {name}, we tried to reach you about your solar survey. Please call us back when you can.' },
+];
+
+export const FLAG_REASONS = [
+  { value: 'angry_homeowner',   label: 'Angry homeowner' },
+  { value: 'wants_to_complain', label: 'Wants to make a complaint' },
+  { value: 'dispute',           label: 'Dispute / disagreement' },
+  { value: 'safeguarding',      label: 'Safeguarding concern' },
+  { value: 'other',             label: 'Other (add note)' },
+] as const;
+export type FlagReasonValue = (typeof FLAG_REASONS)[number]['value'];

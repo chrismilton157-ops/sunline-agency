@@ -1,6 +1,6 @@
 import 'server-only';
 import { getServerAdmin } from './supabase/admin';
-import type { ConfirmerStats } from './types';
+import type { ConfirmerStats, ConfirmerStatsRich } from './types';
 
 export type ConfirmerRow = {
   id: string;
@@ -23,7 +23,7 @@ export async function loadConfirmers(): Promise<ConfirmerRow[]> {
 // All reads are via the service-role admin client — agency-only data.
 export async function computeConfirmerStats(
   sinceIso?: string,  // ISO string — if omitted, all time
-): Promise<ConfirmerStats[]> {
+): Promise<ConfirmerStatsRich[]> {
   const admin = getServerAdmin();
   const since = sinceIso ?? new Date(0).toISOString();
 
@@ -114,6 +114,33 @@ export async function computeConfirmerStats(
       cancellation_reasons[r] = (cancellation_reasons[r] ?? 0) + 1;
     }
 
+    // --- Rich stats (Phase 21) ---
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayIso = todayStart.toISOString();
+
+    const today_confirmed = confirmed.filter(
+      (e) => e.created_at >= todayIso,
+    ).length;
+
+    // 7-day trend: confirmed events per day, oldest first
+    const week_trend: number[] = Array(7).fill(0);
+    for (let d = 6; d >= 0; d--) {
+      const dayStart = new Date();
+      dayStart.setHours(0, 0, 0, 0);
+      dayStart.setDate(dayStart.getDate() - d);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setDate(dayEnd.getDate() + 1);
+      week_trend[6 - d] = confirmed.filter(
+        (e) => e.created_at >= dayStart.toISOString() && e.created_at < dayEnd.toISOString(),
+      ).length;
+    }
+
+    const callbacks_set = myEvents.filter((e) => e.event_type === 'callback_set').length;
+    const no_shows_logged = myEvents.filter((e) => e.event_type === 'outcome_logged').length;
+    const texts_sent = myEvents.filter((e) => e.event_type === 'text_sent').length;
+    const flagged_count = myEvents.filter((e) => e.event_type === 'flagged').length;
+
     return {
       confirmer_id: uid,
       confirmer_email: u.email as string,
@@ -125,6 +152,13 @@ export async function computeConfirmerStats(
       inbound_calls: inbound.length,
       confirmed_count: confirmed.length,
       cancellation_reasons,
-    } satisfies ConfirmerStats;
+      // Rich additions
+      callbacks_set,
+      no_shows_logged,
+      texts_sent,
+      flagged_count,
+      today_confirmed,
+      week_trend,
+    } satisfies ConfirmerStatsRich;
   });
 }
