@@ -1,3 +1,6 @@
+import type { Metadata } from 'next';
+export const metadata: Metadata = { title: 'Alerts' };
+
 import Link from 'next/link';
 import { getServerAdmin } from '@/lib/supabase/admin';
 import { loadAll, loadAllocationView } from '@/lib/data';

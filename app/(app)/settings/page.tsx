@@ -1,3 +1,6 @@
+import type { Metadata } from 'next';
+export const metadata: Metadata = { title: 'Settings' };
+
 import { getSettings, SETTINGS_DEFAULTS } from '@/lib/settings';
 import { saveSettings, resetSettings } from './actions';
 

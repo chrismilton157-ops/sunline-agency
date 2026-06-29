@@ -4,6 +4,9 @@ import { getServerAdmin } from '@/lib/supabase/admin';
 import type { LeadQueue, CallDisposition } from '@/lib/types';
 import { QueueClient } from './QueueClient';
 
+import type { Metadata } from 'next';
+export const metadata: Metadata = { title: 'Call queue' };
+
 export const dynamic = 'force-dynamic';
 
 const STALE_MS = 30 * 60 * 1000;

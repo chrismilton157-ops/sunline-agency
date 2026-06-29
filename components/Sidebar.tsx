@@ -36,10 +36,23 @@ export function Sidebar({ email, role }: { email: string; role?: string }) {
                       flex md:flex-col items-center md:items-stretch
                       px-4 py-3 md:py-6 gap-1 md:gap-1">
       <div className="hidden md:block mb-6 px-2">
-        <div className="text-amber font-semibold text-base tracking-tight">
-          Sunline
+        <div className="flex items-center gap-2">
+          <svg width="20" height="20" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <line x1="16" y1="2" x2="16" y2="7" stroke="#E07B39" strokeWidth="2.5" strokeLinecap="round"/>
+            <line x1="16" y1="25" x2="16" y2="30" stroke="#E07B39" strokeWidth="2.5" strokeLinecap="round"/>
+            <line x1="2" y1="16" x2="7" y2="16" stroke="#E07B39" strokeWidth="2.5" strokeLinecap="round"/>
+            <line x1="25" y1="16" x2="30" y2="16" stroke="#E07B39" strokeWidth="2.5" strokeLinecap="round"/>
+            <line x1="5.5" y1="5.5" x2="9" y2="9" stroke="#E07B39" strokeWidth="2.5" strokeLinecap="round"/>
+            <line x1="23" y1="23" x2="26.5" y2="26.5" stroke="#E07B39" strokeWidth="2.5" strokeLinecap="round"/>
+            <line x1="26.5" y1="5.5" x2="23" y2="9" stroke="#E07B39" strokeWidth="2.5" strokeLinecap="round"/>
+            <line x1="9" y1="23" x2="5.5" y2="26.5" stroke="#E07B39" strokeWidth="2.5" strokeLinecap="round"/>
+            <circle cx="16" cy="16" r="5.5" fill="#E07B39"/>
+          </svg>
+          <div className="text-amber font-semibold text-base tracking-tight">
+            Sunline
+          </div>
         </div>
-        <div className="text-white/50 text-xs mt-0.5">
+        <div className="text-white/50 text-xs mt-0.5 ml-7">
           {isSetter ? 'Setter' : 'Owner'}
         </div>
       </div>

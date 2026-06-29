@@ -18,6 +18,9 @@ import {
   fmtRatio,
 } from '@/lib/format';
 
+import type { Metadata } from 'next';
+export const metadata: Metadata = { title: 'My results' };
+
 export const dynamic = 'force-dynamic';
 
 export default async function PortalResultsPage() {
@@ -43,7 +46,9 @@ export default async function PortalResultsPage() {
           {fmtMoney(m.revenueGenerated)}
         </div>
         <div className="text-muted text-sm mt-2">
-          {fmtInt(m.sold)} solar systems sold from {fmtInt(m.sits)} appointments — and counting.
+          {m.sits > 0
+            ? `${fmtInt(m.sold)} solar systems sold from ${fmtInt(m.sits)} appointments — and counting.`
+            : 'Your results will build here as appointments are booked and completed.'}
         </div>
 
         <div className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-hairline">
@@ -52,18 +57,33 @@ export default async function PortalResultsPage() {
             <div className="num mt-1.5 text-3xl font-semibold text-amber">
               {fmtRatio(m.roi)}
             </div>
-            <div className="text-muted text-xs mt-1">
-              every £1 with us → {fmtMoney2(m.roi)} of sales
-            </div>
+            {m.roi != null && (
+              <div className="text-muted text-xs mt-1">
+                every £1 with us → {fmtMoney2(m.roi)} of sales
+              </div>
+            )}
           </div>
           <div>
             <div className="label">Pipeline value</div>
-            <div className="num mt-1.5 text-3xl font-semibold text-good">
-              {fmtMoney(m.pipelineValue)}
-            </div>
-            <div className="text-muted text-xs mt-1">
-              {fmtInt(m.bookedPending)} booked × your sit & close rates
-            </div>
+            {m.bookedPending > 0 ? (
+              <>
+                <div className="num mt-1.5 text-3xl font-semibold text-good">
+                  {fmtMoney(m.pipelineValue)}
+                </div>
+                <div className="text-muted text-xs mt-1">
+                  {fmtInt(m.bookedPending)} booked × your sit &amp; close rates
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="mt-1.5 text-base font-medium text-muted">
+                  No booked appointments
+                </div>
+                <div className="text-muted text-xs mt-1">
+                  Will update as new sits are booked
+                </div>
+              </>
+            )}
           </div>
         </div>
       </section>

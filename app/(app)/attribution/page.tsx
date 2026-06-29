@@ -1,3 +1,6 @@
+import type { Metadata } from 'next';
+export const metadata: Metadata = { title: 'Attribution' };
+
 import { loadCampaignAttribution } from '@/lib/data';
 import { fmtInt, fmtMoney, fmtMoney2, fmtRatio } from '@/lib/format';
 

@@ -1,3 +1,6 @@
+import type { Metadata } from 'next';
+export const metadata: Metadata = { title: 'Log activity' };
+
 import { loadAll } from '@/lib/data';
 import { logAppointment } from './actions';
 

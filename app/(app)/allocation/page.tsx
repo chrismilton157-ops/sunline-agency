@@ -1,3 +1,6 @@
+import type { Metadata } from 'next';
+export const metadata: Metadata = { title: 'Allocation' };
+
 import { loadAllocationView } from '@/lib/data';
 import { fmtMoney, fmtMoney2, fmtPct, monthLabel } from '@/lib/format';
 import { ymUTC, previousYM } from '@/lib/billing';

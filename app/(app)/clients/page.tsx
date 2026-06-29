@@ -1,3 +1,6 @@
+import type { Metadata } from 'next';
+export const metadata: Metadata = { title: 'Clients' };
+
 import Link from 'next/link';
 import { HealthBadge } from '@/components/HealthBadge';
 import { loadAll } from '@/lib/data';

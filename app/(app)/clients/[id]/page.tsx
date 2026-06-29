@@ -1,3 +1,6 @@
+import type { Metadata } from 'next';
+export const metadata: Metadata = { title: 'Client detail' };
+
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { AppointmentRow } from '@/components/AppointmentRow';
@@ -16,12 +19,14 @@ import {
   repsFlag,
 } from '@/lib/metrics';
 import {
+  fmtDate,
   fmtInt,
   fmtMins,
   fmtMoney,
   fmtMoney2,
   fmtPct,
   fmtRatio,
+  monthLabel,
 } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
@@ -98,7 +103,7 @@ export default async function ClientDetailPage({
             </h1>
             <p className="text-muted text-sm mt-1">
               {client.contact ?? '—'} · {client.region ?? '—'} · joined{' '}
-              <span className="num">{client.joined_at}</span>
+              <span className="num">{fmtDate(client.joined_at)}</span>
             </p>
           </div>
           <HealthBadge health={h} />
@@ -201,7 +206,7 @@ export default async function ClientDetailPage({
         </div>
 
         <div className="card p-5">
-          <h2 className="font-semibold mb-3">Billing this period ({ym})</h2>
+          <h2 className="font-semibold mb-3">Billing this period ({monthLabel(ym)})</h2>
           <dl className="text-sm space-y-2">
             <div className="flex justify-between">
               <dt className="text-muted">Retainer</dt>
