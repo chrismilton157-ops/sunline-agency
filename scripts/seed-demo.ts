@@ -37,21 +37,27 @@ async function main() {
   await admin.from('clients').delete().eq('id', DEMO_CLIENT_ID);
 
   console.log('→ Inserting Demo Solar Co client');
-  const { error: cErr } = await admin.from('clients').insert({
-    id:                    DEMO_CLIENT_ID,
-    company:               'Demo Solar Co',
-    contact:               'Demo Account',
-    region:                'South East',
-    retainer:              1500,
-    per_sit_fee:           75,
-    ad_spend_monthly:      1000,
-    management_markup_pct: 20,
-    status:                'active',
-    joined_at:             '2026-01-15',
-    is_demo:               true,
-    weekly_promise:        10,
-    priority:              0,
-  });
+  // Try with is_demo first; fall back if migration 0016 hasn't been applied yet.
+  let cErr = (await admin.from('clients').insert({
+    id: DEMO_CLIENT_ID, company: 'Demo Solar Co', contact: 'Demo Account',
+    region: 'South East', retainer: 1500, per_sit_fee: 75,
+    ad_spend_monthly: 1000, management_markup_pct: 20,
+    status: 'active', joined_at: '2026-01-15',
+    is_demo: true, weekly_promise: 10, priority: 0,
+  })).error;
+  if (cErr?.code === 'PGRST204') {
+    // is_demo column not yet migrated — insert without it and warn.
+    console.warn('  ⚠ is_demo column not found — migration 0016 not applied yet.');
+    console.warn('    Run: ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS is_demo boolean NOT NULL DEFAULT false;');
+    console.warn('    Then re-run seed:demo to set the flag.');
+    cErr = (await admin.from('clients').insert({
+      id: DEMO_CLIENT_ID, company: 'Demo Solar Co', contact: 'Demo Account',
+      region: 'South East', retainer: 1500, per_sit_fee: 75,
+      ad_spend_monthly: 1000, management_markup_pct: 20,
+      status: 'active', joined_at: '2026-01-15',
+      weekly_promise: 10, priority: 0,
+    })).error;
+  }
   if (cErr) throw cErr;
 
   console.log('→ Linking demo auth user → Demo Solar Co (client role)');
