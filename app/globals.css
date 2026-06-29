@@ -58,6 +58,17 @@
   }
 }
 
+/* PWA safe-area helpers */
+.pt-safe-top {
+  padding-top: max(12px, env(safe-area-inset-top));
+}
+/* Only apply in standalone (installed PWA) mode so desktop is unaffected */
+@media (display-mode: standalone) {
+  .sticky-safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+}
+
 /* Phase 5b: multi-step apply form slide-fade. */
 @keyframes step-in {
   from {

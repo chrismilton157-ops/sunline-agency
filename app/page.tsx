@@ -47,7 +47,7 @@ export default async function LandingPage() {
 
 function Nav() {
   return (
-    <header className="sticky top-0 z-50 bg-sidebar/95 backdrop-blur-sm border-b border-white/10">
+    <header className="sticky top-0 z-50 bg-sidebar/95 backdrop-blur-sm border-b border-white/10 sticky-safe-top">
       <div className="max-w-6xl mx-auto px-5 sm:px-8 h-16 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-amber font-bold text-lg tracking-tight">Sunline</span>

@@ -42,7 +42,8 @@ export function Sidebar({ email, role }: { email: string; role?: string }) {
   return (
     <aside className="bg-sidebar text-white md:w-60 md:min-h-screen md:sticky md:top-0
                       flex md:flex-col items-center md:items-stretch
-                      px-4 py-2 md:py-6 gap-1 md:gap-1
+                      px-4 pb-2 md:py-6 gap-1 md:gap-1
+                      pt-safe-top md:pt-6
                       pb-[max(8px,env(safe-area-inset-bottom))] md:pb-6">
       <div className="hidden md:block mb-6 px-2">
         <div className="flex items-center gap-2">
