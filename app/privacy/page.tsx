@@ -85,25 +85,32 @@ export default function PrivacyPage() {
 
           <div>
             <h2 className="font-semibold text-base">Your rights</h2>
-            <ul className="mt-1 list-disc list-inside text-muted space-y-1">
-              <li>
-                <strong>Right to be forgotten:</strong> email{' '}
-                <span className="text-ink">privacy@sunline.test</span> and
-                we&apos;ll delete your record.
-              </li>
-              <li>
-                <strong>Right to withdraw consent:</strong> reply STOP to any
-                SMS, or email the address above.
-              </li>
-              <li>
-                <strong>Right to access / correct:</strong> contact us and
-                we&apos;ll show you what we hold.
-              </li>
-              <li>
-                You can complain to the ICO at{' '}
-                <span className="text-ink">ico.org.uk</span> at any time.
-              </li>
-            </ul>
+            <p className="mt-1 text-muted">
+              You have the right to access, correct, or erase the personal data
+              we hold about you, and to raise a data-protection complaint. To
+              exercise any of these rights, use our{' '}
+              <Link
+                href="/data-request"
+                className="text-amber underline underline-offset-2"
+              >
+                data request form
+              </Link>{' '}
+              — we will acknowledge your request and respond within the
+              statutory timeframe (one month). You can also complain to the
+              ICO at{' '}
+              <a
+                href="https://ico.org.uk/make-a-complaint/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-amber underline underline-offset-2"
+              >
+                ico.org.uk
+              </a>{' '}
+              at any time.
+            </p>
+            <p className="mt-2 text-muted italic text-xs">
+              [Solicitor review pending — this section needs final legal wording]
+            </p>
           </div>
 
           <div>

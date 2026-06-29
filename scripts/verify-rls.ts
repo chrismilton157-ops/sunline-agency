@@ -310,6 +310,16 @@ async function main() {
         { error, data },
       );
     }
+
+    // GDPR data_requests is owner-only: client must see 0 rows.
+    const resDR = await clientPortal
+      .from('data_requests')
+      .select('id, requester_name');
+    check(
+      'client cannot read any data_requests (owner-only RLS)',
+      !!resDR.error || (resDR.data ?? []).length === 0,
+      { error: resDR.error, data: resDR.data },
+    );
   }
 
   // -----------------------------------------------------------------------
@@ -415,6 +425,15 @@ async function main() {
       'setter cannot read agency_settings',
       !!asErr || (asData ?? []).length === 0,
       { asErr, asData },
+    );
+
+    // Cannot read data_requests (owner-only table)
+    const { data: drData, error: drErr } = await setterPortal
+      .from('data_requests').select('id');
+    check(
+      'setter cannot read any data_requests (owner-only RLS)',
+      !!drErr || (drData ?? []).length === 0,
+      { drErr, drData },
     );
 
     // Phase 12 — setter can update their own avatar_url via RPC (not raw UPDATE)
