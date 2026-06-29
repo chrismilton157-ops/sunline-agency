@@ -57,13 +57,23 @@ export default async function LeadsPage() {
   return (
     <div className="space-y-8">
       <header>
-        <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
-          Leads
-        </h1>
-        <p className="text-muted text-sm mt-1">
-          Live captures from the public form. Routing rule fired, consent state,
-          and GDPR delete are visible here.
-        </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
+              Leads
+            </h1>
+            <p className="text-muted text-sm mt-1">
+              Live captures from the public form. Routing rule fired, consent state,
+              and GDPR delete are visible here.
+            </p>
+          </div>
+          <a
+            href="/api/export/leads"
+            className="btn btn-secondary shrink-0 text-xs"
+          >
+            Export CSV
+          </a>
+        </div>
         <div className="mt-3 flex flex-wrap gap-2 text-xs">
           <span className="num px-2 py-1 rounded-md bg-hairline/40 text-ink">
             {leads.length} total

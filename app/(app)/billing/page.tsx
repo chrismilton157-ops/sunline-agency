@@ -51,13 +51,23 @@ export default async function BillingPage({
   return (
     <div className="space-y-8">
       <header>
-        <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
-          Billing
-        </h1>
-        <p className="text-muted text-sm mt-1">
-          Generate, review, issue and mark invoices paid. Draft invoices can
-          be re-generated; issued / paid invoices are locked.
-        </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
+              Billing
+            </h1>
+            <p className="text-muted text-sm mt-1">
+              Generate, review, issue and mark invoices paid. Draft invoices can
+              be re-generated; issued / paid invoices are locked.
+            </p>
+          </div>
+          <a
+            href="/api/export/invoices"
+            className="btn btn-secondary shrink-0 text-xs"
+          >
+            Export CSV
+          </a>
+        </div>
       </header>
 
       <section className="grid grid-cols-3 gap-3 md:gap-4">

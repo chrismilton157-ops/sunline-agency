@@ -84,12 +84,22 @@ export default async function OverviewPage() {
   return (
     <div className="space-y-8">
       <header>
-        <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
-          Overview
-        </h1>
-        <p className="text-muted text-sm mt-1">
-          Live agency snapshot · {clients.length} clients
-        </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
+              Overview
+            </h1>
+            <p className="text-muted text-sm mt-1">
+              Live agency snapshot · {clients.length} clients
+            </p>
+          </div>
+          <a
+            href="/api/export/appointments"
+            className="btn btn-secondary shrink-0 text-xs"
+          >
+            Export appointments CSV
+          </a>
+        </div>
       </header>
 
       {alerts.length > 0 && (
