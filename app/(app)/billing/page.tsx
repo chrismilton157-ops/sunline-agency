@@ -1,3 +1,6 @@
+import type { Metadata } from 'next';
+export const metadata: Metadata = { title: 'Billing' };
+
 import { loadOwnerInvoices } from '@/lib/data';
 import { fmtDate, fmtMoney, fmtMoney2, monthLabel } from '@/lib/format';
 import { ymUTC, previousYM } from '@/lib/billing';

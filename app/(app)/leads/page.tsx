@@ -4,6 +4,9 @@ import { fmtDateTime, fmtMoney } from '@/lib/format';
 import { DISQUAL_LABELS, parseDqRule } from '@/lib/qualifying';
 import { deleteLead } from './actions';
 
+import type { Metadata } from 'next';
+export const metadata: Metadata = { title: 'Leads' };
+
 export const dynamic = 'force-dynamic';
 
 const ruleLabel = (rule: string | null) => {

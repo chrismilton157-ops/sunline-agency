@@ -1,3 +1,6 @@
+import type { Metadata } from 'next';
+export const metadata: Metadata = { title: 'Setters' };
+
 import { redirect } from 'next/navigation';
 import { requireOwner } from '@/lib/data';
 import { getServerAdmin } from '@/lib/supabase/admin';

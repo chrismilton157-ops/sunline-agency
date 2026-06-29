@@ -8,6 +8,9 @@ import {
 } from '@/lib/metrics';
 import { fmtMoney2, fmtPct } from '@/lib/format';
 
+import type { Metadata } from 'next';
+export const metadata: Metadata = { title: 'Today' };
+
 export const dynamic = 'force-dynamic';
 
 // ---------------------------------------------------------------------------

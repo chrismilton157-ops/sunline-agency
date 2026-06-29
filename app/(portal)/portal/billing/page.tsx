@@ -2,6 +2,9 @@ import { redirect } from 'next/navigation';
 import { loadPortalInvoices, requireSession } from '@/lib/data';
 import { fmtDate, fmtMoney2, monthLabel } from '@/lib/format';
 
+import type { Metadata } from 'next';
+export const metadata: Metadata = { title: 'Billing' };
+
 export const dynamic = 'force-dynamic';
 
 const statusChip = (s: string) => {

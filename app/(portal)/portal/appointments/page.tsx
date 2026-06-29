@@ -3,6 +3,9 @@ import { PortalAppointmentRow } from '@/components/PortalAppointmentRow';
 import { loadPortalForClient, requireSession } from '@/lib/data';
 import { fmtDateTime } from '@/lib/format';
 
+import type { Metadata } from 'next';
+export const metadata: Metadata = { title: 'Appointments' };
+
 export const dynamic = 'force-dynamic';
 
 export default async function PortalAppointmentsPage() {

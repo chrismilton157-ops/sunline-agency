@@ -1,7 +1,8 @@
 import { requireOwner } from '@/lib/data';
 import { getServerAdmin } from '@/lib/supabase/admin';
 
-export const metadata = { title: 'Installer Enquiries — Sunline' };
+import type { Metadata } from 'next';
+export const metadata: Metadata = { title: 'Installer Enquiries' };
 
 interface Enquiry {
   id: string;

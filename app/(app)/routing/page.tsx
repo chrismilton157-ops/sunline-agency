@@ -1,3 +1,6 @@
+import type { Metadata } from 'next';
+export const metadata: Metadata = { title: 'Routing' };
+
 import { RoutingSimulator } from '@/components/RoutingSimulator';
 import { loadRoutingState } from '@/lib/data';
 import { clusterPromises, fillPercent, weekBoundsUTC } from '@/lib/routing';
