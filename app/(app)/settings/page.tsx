@@ -171,6 +171,56 @@ export default async function SettingsPage({
           />
         </section>
 
+        {/* ── Adaptive routing ── */}
+        <section className="card divide-y divide-hairline" id="adaptive">
+          <div className="px-5 py-4">
+            <h2 className="font-semibold">Adaptive routing</h2>
+            <p className="text-muted text-xs mt-0.5">
+              A learning layer that observes real outcomes and can weight tie-breaking decisions
+              toward higher-converting clients. Safe to enable only once you&apos;ve watched
+              shadow mode on the Routing screen and you&apos;re happy with what it shows.
+              Fairness rules (starvation floor, promise-fill) always bind regardless of this setting.
+            </p>
+          </div>
+
+          {/* Toggle */}
+          <div className="px-5 py-4 flex flex-col sm:flex-row sm:items-start gap-3">
+            <div className="flex-1 min-w-0">
+              <label htmlFor="adaptive_routing_enabled_select" className="text-sm font-medium">
+                Adaptive routing mode
+              </label>
+              <p className="text-muted text-xs mt-0.5">
+                <strong>Shadow</strong> — watches decisions and shows diffs on the Routing screen.
+                Live routing is unchanged. <strong>Live</strong> — adaptive tie-breaking is active:
+                among genuinely tied candidates the engine may favour higher close-rate clients.
+                Starvation and promise-fill rules always take priority.
+              </p>
+            </div>
+            <div className="sm:pt-0.5">
+              <select
+                id="adaptive_routing_enabled_select"
+                name="adaptive_routing_enabled"
+                defaultValue={s.adaptive_routing_enabled ? 'true' : 'false'}
+                className="input w-36"
+              >
+                <option value="false">Shadow (off)</option>
+                <option value="true">Live (on)</option>
+              </select>
+            </div>
+          </div>
+
+          <FieldRow
+            label="Minimum sample size"
+            hint="Number of appointments (sits) required before a client's close rate is treated as 'sufficient'. Below this, the rate is blended toward the agency default and flagged as thin data. Recommended: 20."
+            name="adaptive_min_sample"
+            defaultValue={s.adaptive_min_sample}
+            codeDefault={d.adaptive_min_sample}
+            step="1"
+            min="5"
+            max="200"
+          />
+        </section>
+
         {/* ── Actions ── */}
         <div className="flex items-center gap-3">
           <button type="submit" className="btn btn-primary">

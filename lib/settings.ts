@@ -14,6 +14,9 @@ export const SETTINGS_DEFAULTS = {
   bill_band_200_plus_rep: 250,
   est_cost_per_lead: 40,
   lead_to_appt_rate: 0.3,
+  // Adaptive routing (Phase adaptive)
+  adaptive_routing_enabled: false,
+  adaptive_min_sample: 20,
 } as const;
 
 export type AgencySettings = {
@@ -25,12 +28,15 @@ export type AgencySettings = {
   bill_band_200_plus_rep: number;
   est_cost_per_lead: number;
   lead_to_appt_rate: number;
+  adaptive_routing_enabled: boolean;
+  adaptive_min_sample: number;
 };
 
 const COLUMNS =
   'default_management_markup_pct, default_per_sit_fee, ' +
   'min_monthly_bill_gbp, bill_band_80_120_rep, bill_band_120_200_rep, ' +
-  'bill_band_200_plus_rep, est_cost_per_lead, lead_to_appt_rate';
+  'bill_band_200_plus_rep, est_cost_per_lead, lead_to_appt_rate, ' +
+  'adaptive_routing_enabled, adaptive_min_sample';
 
 export async function getSettings(): Promise<AgencySettings> {
   const supabase = await getServerSupabase();
@@ -51,5 +57,7 @@ export async function getSettings(): Promise<AgencySettings> {
     bill_band_200_plus_rep:        Number(data.bill_band_200_plus_rep),
     est_cost_per_lead:             Number(data.est_cost_per_lead),
     lead_to_appt_rate:             Number(data.lead_to_appt_rate),
+    adaptive_routing_enabled:      Boolean(data.adaptive_routing_enabled),
+    adaptive_min_sample:           Number(data.adaptive_min_sample ?? 20),
   };
 }
