@@ -10,6 +10,8 @@ export default async function PortalLayout({
   const { user, role, clientId } = await requireSession();
   if (!user) redirect('/login');
   if (role === 'owner') redirect('/overview');
+  if (role === 'setter') redirect('/queue');
+  if (role === 'confirmer') redirect('/cockpit');
   if (role !== 'client' || !clientId) {
     redirect('/login?error=No+client+linked+to+this+account');
   }

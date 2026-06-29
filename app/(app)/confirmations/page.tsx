@@ -6,6 +6,8 @@ import { getServerSupabase } from '@/lib/supabase/server';
 import { getServerAdmin } from '@/lib/supabase/admin';
 import type { ConfirmationAppointment, ConfirmationAttempt } from '@/lib/types';
 import { ConfirmationsClient } from './ConfirmationsClient';
+import { computeConfirmerStats } from '@/lib/confirmer-metrics';
+import { CANCELLATION_REASONS } from '@/lib/confirmer-config';
 
 export const dynamic = 'force-dynamic';
 
@@ -85,8 +87,19 @@ export default async function ConfirmationsPage() {
     return diff <= 48 * 60 * 60 * 1000;
   }).length;
 
+  // Load confirmer performance stats
+  let confirmerStats: Awaited<ReturnType<typeof computeConfirmerStats>> = [];
+  try {
+    confirmerStats = await computeConfirmerStats();
+  } catch {
+    // Non-critical — page works without stats
+  }
+
+  const reasonLabel = (v: string) =>
+    CANCELLATION_REASONS.find((r) => r.value === v)?.label ?? v;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <header>
         <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
           Confirmations
@@ -107,6 +120,50 @@ export default async function ConfirmationsPage() {
       </header>
 
       <ConfirmationsClient appointments={appointments} />
+
+      {/* Confirmer performance */}
+      {confirmerStats.length > 0 && (
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold text-ink">Confirmer performance</h2>
+          <div className="space-y-4">
+            {confirmerStats.map((s) => (
+              <div key={s.confirmer_id} className="rounded-xl border border-hairline bg-white p-5 space-y-4">
+                <div className="font-medium text-ink text-sm">{s.confirmer_email}</div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    { label: 'Show-rate', value: s.show_rate !== null ? `${s.show_rate}%` : '—', sub: 'confirmed → sat' },
+                    { label: 'Save rate', value: s.save_rate !== null ? `${s.save_rate}%` : '—', sub: 'would-be cancels saved' },
+                    { label: 'Confirmed', value: String(s.confirmed_count), sub: s.confirmation_rate !== null ? `${s.confirmation_rate}% rate` : undefined },
+                    { label: 'Inbound calls', value: String(s.inbound_calls), sub: `${s.reschedules} rescheduled` },
+                  ].map((c) => (
+                    <div key={c.label} className="rounded-lg border border-hairline bg-hairline/10 px-3 py-2.5 text-center">
+                      <div className="num text-xl font-bold text-ink">{c.value}</div>
+                      <div className="text-xs font-medium text-ink mt-0.5">{c.label}</div>
+                      {c.sub && <div className="text-xs text-muted">{c.sub}</div>}
+                    </div>
+                  ))}
+                </div>
+
+                {s.cancellations > 0 && (
+                  <div>
+                    <div className="text-xs font-medium text-muted mb-1.5">
+                      Cancellation reasons ({s.cancellations} total)
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {Object.entries(s.cancellation_reasons).map(([r, count]) => (
+                        <span key={r} className="px-2 py-0.5 rounded-full text-xs bg-hairline/30 border border-hairline text-ink">
+                          {reasonLabel(r)}: {count}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

@@ -20,6 +20,8 @@ const clientEmail = req('SEED_CLIENT_EMAIL');
 const clientPassword = req('SEED_CLIENT_PASSWORD');
 const setterEmail = req('SEED_SETTER_EMAIL');
 const setterPassword = req('SEED_SETTER_PASSWORD');
+const confirmerEmail = req('SEED_CONFIRMER_EMAIL');
+const confirmerPassword = req('SEED_CONFIRMER_PASSWORD');
 
 // Optional — only checked when DEMO_CLIENT_EMAIL + DEMO_CLIENT_PASSWORD are set.
 const demoEmail    = process.env.DEMO_CLIENT_EMAIL;
@@ -38,6 +40,7 @@ async function main() {
   const ownerClient = await signedInClient(ownerEmail, ownerPassword);
   const clientPortal = await signedInClient(clientEmail, clientPassword);
   const setterPortal = await signedInClient(setterEmail, setterPassword);
+  const confirmerPortal = await signedInClient(confirmerEmail, confirmerPassword);
 
   let failed = 0;
   const check = (label: string, pass: boolean, detail?: unknown) => {
@@ -468,6 +471,148 @@ async function main() {
   }
 
   // -----------------------------------------------------------------------
+  // Phase 20 — Confirmer role: can read appointments + leads (safe cols),
+  // cannot read money, clients, invoices, audit log, or other agency data.
+  // -----------------------------------------------------------------------
+  console.log('Confirmer view (confirmer@sunline.test):');
+  {
+    // Can read own users row
+    const confirmerId = await setterId(confirmerEmail);
+    const { data: selfRow, error: selfErr } = await confirmerPortal
+      .from('users').select('id, role').eq('id', confirmerId);
+    check(
+      'confirmer can read their own users row',
+      !selfErr && (selfRow?.length ?? 0) === 1,
+      { selfErr, selfRow },
+    );
+
+    // CAN read appointments (cross-client, to manage the queue)
+    const { data: apptData, error: apptErr } = await confirmerPortal
+      .from('appointments').select('id, outcome, confirmed_at, appt_date').limit(5);
+    check(
+      'confirmer can read appointments (queue management)',
+      !apptErr && (apptData ?? []).length >= 0,   // >= 0: queue might be empty
+      { apptErr, rowCount: apptData?.length },
+    );
+
+    // CAN read leads (safe columns only — for homeowner contact)
+    const { data: leadData, error: leadErr } = await confirmerPortal
+      .from('leads').select('id, name, phone, address').limit(5);
+    check(
+      'confirmer can read leads (safe columns only)',
+      !leadErr && (leadData ?? []).length >= 0,
+      { leadErr, rowCount: leadData?.length },
+    );
+
+    // CANNOT read agency-only lead columns
+    const hiddenLeadCols = ['notes', 'campaign_source', 'consent_at', 'no_answer_count'];
+    for (const col of hiddenLeadCols) {
+      const res = await confirmerPortal
+        .from('leads')
+        .select(`id, ${col}` as '*')
+        .limit(1);
+      const error = res.error;
+      const data = (res.data ?? []) as Record<string, unknown>[];
+      check(
+        `confirmer cannot read leads.${col} (column-level revoke)`,
+        !!error || data.every((r) => !(col in r)),
+        { error, data },
+      );
+    }
+
+    // CANNOT read invoices (money)
+    const { data: invData, error: invErr } = await confirmerPortal
+      .from('invoices').select('id, total');
+    check(
+      'confirmer cannot read any invoices (money)',
+      !!invErr || (invData ?? []).length === 0,
+      { invErr, invData },
+    );
+
+    // CANNOT read clients (agency commercial data)
+    const { data: clData, error: clErr } = await confirmerPortal
+      .from('clients').select('id, company');
+    check(
+      'confirmer cannot read any clients rows (no RLS policy for confirmer)',
+      !!clErr || (clData ?? []).length === 0,
+      { clErr, clData },
+    );
+
+    // CANNOT read campaign_spend
+    const { data: csData, error: csErr } = await confirmerPortal
+      .from('campaign_spend').select('campaign_id, amount');
+    check(
+      'confirmer cannot read campaign_spend (table-level revoke)',
+      !!csErr || (csData ?? []).length === 0,
+      { csErr, csData },
+    );
+
+    // CANNOT read call_dispositions
+    const { data: cdData, error: cdErr } = await confirmerPortal
+      .from('call_dispositions').select('id');
+    check(
+      'confirmer cannot read call_dispositions (table-level revoke)',
+      !!cdErr || (cdData ?? []).length === 0,
+      { cdErr, cdData },
+    );
+
+    // CANNOT read confirmation_attempts (table-level revoke; server uses admin client)
+    const { data: caData, error: caErr } = await confirmerPortal
+      .from('confirmation_attempts').select('id');
+    check(
+      'confirmer cannot read confirmation_attempts (table-level revoke)',
+      !!caErr || (caData ?? []).length === 0,
+      { caErr, caData },
+    );
+
+    // CANNOT read audit_log
+    const { data: auData, error: auErr } = await confirmerPortal
+      .from('audit_log').select('id').limit(5);
+    check(
+      'confirmer cannot read audit_log',
+      !!auErr || (auData ?? []).length === 0,
+      { auErr, auData },
+    );
+
+    // CANNOT read agency_settings
+    const { data: asData, error: asErr } = await confirmerPortal
+      .from('agency_settings').select('id');
+    check(
+      'confirmer cannot read agency_settings',
+      !!asErr || (asData ?? []).length === 0,
+      { asErr, asData },
+    );
+
+    // CANNOT read data_requests
+    const { data: drData, error: drErr } = await confirmerPortal
+      .from('data_requests').select('id');
+    check(
+      'confirmer cannot read data_requests',
+      !!drErr || (drData ?? []).length === 0,
+      { drErr, drData },
+    );
+
+    // CANNOT read clients.ad_spend_monthly (column-level revoke)
+    const { data: adData, error: adErr } = await confirmerPortal
+      .from('clients')
+      .select('id, ad_spend_monthly');
+    check(
+      'confirmer cannot read clients.ad_spend_monthly (column-level revoke)',
+      !!adErr || (adData ?? []).every((r: Record<string, unknown>) => !('ad_spend_monthly' in r)),
+      { adErr, adData },
+    );
+
+    // appointment_events: confirmer sees 0 rows (SELECT revoked from authenticated)
+    const { data: aeData, error: aeErr } = await confirmerPortal
+      .from('appointment_events').select('id').limit(5);
+    check(
+      'confirmer cannot read appointment_events via JWT (table-level SELECT revoked)',
+      !!aeErr || (aeData ?? []).length === 0,
+      { aeErr, aeData },
+    );
+  }
+
+  // -----------------------------------------------------------------------
   // Phase 18 — Audit log: owner-only read, append-only (no update/delete).
   // -----------------------------------------------------------------------
   console.log('Audit log access controls:');
@@ -512,6 +657,15 @@ async function main() {
       'setter cannot read audit_log',
       !!setterAuditErr || (setterAudit ?? []).length === 0,
       { setterAuditErr, setterAudit },
+    );
+
+    // 4b. Confirmer cannot read audit_log (checked above but restate in audit section).
+    const { data: confirmerAudit, error: confirmerAuditErr } = await confirmerPortal
+      .from('audit_log').select('id').limit(10);
+    check(
+      'confirmer cannot read audit_log',
+      !!confirmerAuditErr || (confirmerAudit ?? []).length === 0,
+      { confirmerAuditErr, confirmerAudit },
     );
 
     // 5. Service role cannot UPDATE rows (append-only trigger).

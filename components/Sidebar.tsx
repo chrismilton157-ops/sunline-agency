@@ -28,10 +28,15 @@ const SETTER_ITEMS = [
   { href: '/leaderboard', label: 'Leaderboard' },
 ];
 
+const CONFIRMER_ITEMS = [
+  { href: '/cockpit', label: 'Cockpit' },
+];
+
 export function Sidebar({ email, role }: { email: string; role?: string }) {
   const path = usePathname() ?? '';
-  const isSetter = role === 'setter';
-  const items = isSetter ? SETTER_ITEMS : OWNER_ITEMS;
+  const isSetter    = role === 'setter';
+  const isConfirmer = role === 'confirmer';
+  const items = isSetter ? SETTER_ITEMS : isConfirmer ? CONFIRMER_ITEMS : OWNER_ITEMS;
 
   return (
     <aside className="bg-sidebar text-white md:w-60 md:min-h-screen md:sticky md:top-0
@@ -55,7 +60,7 @@ export function Sidebar({ email, role }: { email: string; role?: string }) {
           </div>
         </div>
         <div className="text-white/50 text-xs mt-0.5 ml-7">
-          {isSetter ? 'Setter' : 'Owner'}
+          {isSetter ? 'Setter' : isConfirmer ? 'Confirmer' : 'Owner'}
         </div>
       </div>
 

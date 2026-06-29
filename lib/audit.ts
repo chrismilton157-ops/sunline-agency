@@ -1,7 +1,7 @@
 import 'server-only';
 import { getServerAdmin } from './supabase/admin';
 
-export type AuditActorRole = 'owner' | 'setter' | 'client' | 'system' | 'public';
+export type AuditActorRole = 'owner' | 'setter' | 'confirmer' | 'client' | 'system' | 'public';
 
 export type AuditEntry = {
   actor_id?: string | null;
@@ -51,9 +51,10 @@ export async function resolveActor(
       .single();
     const r = row?.role ?? 'public';
     const role: AuditActorRole =
-      r === 'owner' ? 'owner' :
-      r === 'setter' ? 'setter' :
-      r === 'client' ? 'client' : 'public';
+      r === 'owner'     ? 'owner' :
+      r === 'setter'    ? 'setter' :
+      r === 'confirmer' ? 'confirmer' :
+      r === 'client'    ? 'client' : 'public';
     return { id: user.id, role };
   } catch {
     return { id: null, role: 'public' };
