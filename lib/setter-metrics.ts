@@ -252,6 +252,90 @@ export function rankByBookings(stats: SetterOutputStats[]): SetterOutputStats[] 
   return [...stats].sort((a, b) => b.bookings - a.bookings || (b.bookingRate ?? 0) - (a.bookingRate ?? 0));
 }
 
+// ── Claim tracking (owner-only) ──────────────────────────────────────────────
+
+export type LeadClaimRow = {
+  id: string;
+  first_claimed_by: string | null;
+  first_claimed_at: string | null;
+  created_at: string;
+};
+
+export type SetterClaimStats = {
+  setterId: string;
+  displayName: string;
+  initials: string;
+  avatarUrl: string | null;
+  claimCount: number;
+  avgSpeedMins: number | null;
+};
+
+export type ClaimSummary = {
+  perSetter: SetterClaimStats[];
+  teamAvgSpeedMins: number | null;
+  fastestSetterId: string | null;
+};
+
+export function computeSetterClaimStats(
+  setters: SetterRow[],
+  leads: LeadClaimRow[],
+  range: 'today' | 'week' | 'month',
+  now: Date = new Date(),
+): ClaimSummary {
+  const { start, end } = rangeBounds(range, now);
+
+  const inRange = leads.filter((l) => {
+    if (!l.first_claimed_at) return false;
+    const t = new Date(l.first_claimed_at);
+    return t >= start && t <= end;
+  });
+
+  const perSetter: SetterClaimStats[] = setters.map((s) => {
+    const mine = inRange.filter((l) => l.first_claimed_by === s.id);
+    const speeds = mine
+      .map((l) => {
+        const claimedAt = new Date(l.first_claimed_at!).getTime();
+        const createdAt = new Date(l.created_at).getTime();
+        return (claimedAt - createdAt) / 60_000;
+      })
+      .filter((v) => v >= 0); // ignore negative (clock skew)
+
+    const avgSpeedMins =
+      speeds.length > 0 ? speeds.reduce((a, b) => a + b, 0) / speeds.length : null;
+
+    return {
+      setterId: s.id,
+      displayName: displayName(s.email),
+      initials: initialsFromEmail(s.email),
+      avatarUrl: s.avatar_url,
+      claimCount: mine.length,
+      avgSpeedMins,
+    };
+  });
+
+  // Team average across all leads with both timestamps in range
+  const allSpeeds = inRange
+    .map((l) => {
+      const claimedAt = new Date(l.first_claimed_at!).getTime();
+      const createdAt = new Date(l.created_at).getTime();
+      return (claimedAt - createdAt) / 60_000;
+    })
+    .filter((v) => v >= 0);
+
+  const teamAvgSpeedMins =
+    allSpeeds.length > 0 ? allSpeeds.reduce((a, b) => a + b, 0) / allSpeeds.length : null;
+
+  // Fastest setter = lowest avgSpeedMins (with at least 1 claim)
+  const withClaims = perSetter.filter((s) => s.avgSpeedMins !== null);
+  const fastest = withClaims.sort((a, b) => (a.avgSpeedMins ?? 0) - (b.avgSpeedMins ?? 0))[0];
+
+  return {
+    perSetter,
+    teamAvgSpeedMins,
+    fastestSetterId: fastest?.setterId ?? null,
+  };
+}
+
 // Target benchmarks shown to setters for context
 export const SETTER_BENCHMARKS = {
   targetBookingRate: 0.45,

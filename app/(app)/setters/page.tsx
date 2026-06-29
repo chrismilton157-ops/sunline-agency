@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation';
 import { requireOwner } from '@/lib/data';
 import { getServerAdmin } from '@/lib/supabase/admin';
-import { computeSetterQuality } from '@/lib/setter-metrics';
-import type { SetterRow, DispositionRow, ApptRow } from '@/lib/setter-metrics';
+import { computeSetterQuality, computeSetterClaimStats } from '@/lib/setter-metrics';
+import type { SetterRow, DispositionRow, ApptRow, LeadClaimRow } from '@/lib/setter-metrics';
 import { SettersClient } from './SettersClient';
 
 export const dynamic = 'force-dynamic';
@@ -14,26 +14,37 @@ export default async function SettersPage() {
 
   const admin = getServerAdmin();
 
-  const [settersRes, dispsRes, apptsRes] = await Promise.all([
+  const [settersRes, dispsRes, apptsRes, leadsRes] = await Promise.all([
     admin.from('users').select('id, email, avatar_url').in('role', ['setter', 'owner']),
     admin.from('call_dispositions')
       .select('id, lead_id, disposition, disqual_reason, created_by, created_at'),
     admin.from('appointments')
       .select('id, setter_id, setter, outcome, quality_rating, quality_reason, confirmed_at, appt_date'),
+    admin.from('leads')
+      .select('id, first_claimed_by, first_claimed_at, created_at')
+      .not('first_claimed_at', 'is', null),
   ]);
 
   if (settersRes.error) throw settersRes.error;
   if (dispsRes.error) throw dispsRes.error;
   if (apptsRes.error) throw apptsRes.error;
+  if (leadsRes.error) throw leadsRes.error;
 
   const setters = (settersRes.data ?? []) as SetterRow[];
   const disps = (dispsRes.data ?? []) as DispositionRow[];
   const appts = (apptsRes.data ?? []) as ApptRow[];
+  const leads = (leadsRes.data ?? []) as LeadClaimRow[];
 
   const byRange = {
     today: computeSetterQuality(setters, disps, appts, 'today'),
     week: computeSetterQuality(setters, disps, appts, 'week'),
     month: computeSetterQuality(setters, disps, appts, 'month'),
+  };
+
+  const claimsByRange = {
+    today: computeSetterClaimStats(setters, leads, 'today'),
+    week: computeSetterClaimStats(setters, leads, 'week'),
+    month: computeSetterClaimStats(setters, leads, 'month'),
   };
 
   return (
@@ -47,7 +58,7 @@ export default async function SettersPage() {
         </p>
       </header>
 
-      <SettersClient byRange={byRange} />
+      <SettersClient byRange={byRange} claimsByRange={claimsByRange} />
     </div>
   );
 }

@@ -2,18 +2,36 @@
 import { useState } from 'react';
 import { fmtPct, fmtInt } from '@/lib/format';
 import { SETTER_BENCHMARKS } from '@/lib/setter-metrics';
-import type { SetterQualityStats } from '@/lib/setter-metrics';
+import type { SetterQualityStats, ClaimSummary } from '@/lib/setter-metrics';
 import { Avatar } from '@/components/Avatar';
 
 type Range = 'today' | 'week' | 'month';
 
 type Props = {
   byRange: Record<Range, SetterQualityStats[]>;
+  claimsByRange: Record<Range, ClaimSummary>;
 };
 
-export function SettersClient({ byRange }: Props) {
+function fmtSpeed(mins: number | null): string {
+  if (mins === null) return '—';
+  if (mins < 1) return '< 1 min';
+  if (mins < 60) return `${Math.round(mins)} min`;
+  const h = Math.floor(mins / 60);
+  const m = Math.round(mins % 60);
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
+function speedColor(mins: number | null): string {
+  if (mins === null) return 'text-muted';
+  if (mins <= 15) return 'text-good font-semibold';
+  if (mins <= 60) return 'text-amber font-semibold';
+  return 'text-bad font-semibold';
+}
+
+export function SettersClient({ byRange, claimsByRange }: Props) {
   const [range, setRange] = useState<Range>('week');
   const stats = byRange[range];
+  const claims = claimsByRange[range];
 
   const ranked = [...stats].sort(
     (a, b) => b.bookings - a.bookings || (b.bookingRate ?? 0) - (a.bookingRate ?? 0),
@@ -214,6 +232,90 @@ export function SettersClient({ byRange }: Props) {
           <div className="text-sm">No setter activity in this period yet.</div>
         </div>
       )}
+
+      {/* Claim speed — owner-only */}
+      <section>
+        <h2 className="text-base font-semibold mb-1">Speed-to-claim</h2>
+        <p className="text-xs text-muted mb-4">
+          Time between a lead arriving in the system and a setter first claiming it.
+          Faster = fresher leads. Tracking starts from deploy — older leads show —.
+        </p>
+
+        {/* Team average highlight */}
+        <div className="rounded-xl border border-hairline p-4 mb-4 flex items-center gap-6">
+          <div>
+            <div className="text-xs text-muted uppercase tracking-wide font-semibold mb-1">Team average</div>
+            <div className={`num text-2xl ${speedColor(claims.teamAvgSpeedMins)}`}>
+              {fmtSpeed(claims.teamAvgSpeedMins)}
+            </div>
+          </div>
+          {claims.fastestSetterId && (() => {
+            const fastest = claims.perSetter.find((s) => s.setterId === claims.fastestSetterId);
+            return fastest ? (
+              <div className="border-l border-hairline pl-6">
+                <div className="text-xs text-muted uppercase tracking-wide font-semibold mb-1">Fastest claimer</div>
+                <div className="flex items-center gap-2">
+                  <Avatar avatarUrl={fastest.avatarUrl} initials={fastest.initials} sizeCls="w-7 h-7 text-xs" />
+                  <div>
+                    <div className="text-sm font-medium">{fastest.displayName}</div>
+                    <div className={`num text-sm ${speedColor(fastest.avgSpeedMins)}`}>
+                      {fmtSpeed(fastest.avgSpeedMins)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null;
+          })()}
+          {claims.teamAvgSpeedMins === null && (
+            <p className="text-sm text-muted">
+              No claim timestamps yet — claim a few leads as a setter to see this metric.
+            </p>
+          )}
+        </div>
+
+        {/* Per-setter table */}
+        {claims.perSetter.some((s) => s.claimCount > 0) && (
+          <div className="rounded-xl border border-hairline overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-hairline/30 text-muted text-xs uppercase tracking-wide">
+                <tr>
+                  <th className="px-4 py-3 text-left">Setter</th>
+                  <th className="px-4 py-3 text-right num">Claims</th>
+                  <th className="px-4 py-3 text-right num">Avg speed-to-claim</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-hairline">
+                {claims.perSetter
+                  .filter((s) => s.claimCount > 0)
+                  .sort((a, b) => (a.avgSpeedMins ?? Infinity) - (b.avgSpeedMins ?? Infinity))
+                  .map((s) => (
+                    <tr key={s.setterId} className="hover:bg-hairline/10">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <Avatar avatarUrl={s.avatarUrl} initials={s.initials} sizeCls="w-7 h-7 text-xs" />
+                          <span className="font-medium">{s.displayName}</span>
+                          {s.setterId === claims.fastestSetterId && (
+                            <span className="text-xs text-good bg-good/10 border border-good/20 px-1.5 py-0.5 rounded-full">
+                              fastest
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right num">{fmtInt(s.claimCount)}</td>
+                      <td className={`px-4 py-3 text-right num ${speedColor(s.avgSpeedMins)}`}>
+                        {fmtSpeed(s.avgSpeedMins)}
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="text-xs text-muted mt-2">
+          Owner-only. Green ≤ 15 min · amber ≤ 60 min · red &gt; 60 min.
+          Speed anchored to lead created_at.
+        </p>
+      </section>
 
       {/* Benchmarks */}
       <section className="rounded-xl border border-hairline/60 bg-hairline/10 p-4">
