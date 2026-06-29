@@ -2,6 +2,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { getServerSupabase } from '@/lib/supabase/server';
+import { writeAudit, resolveActor } from '@/lib/audit';
 
 export async function logAppointment(formData: FormData) {
   const clientId = String(formData.get('client_id') ?? '').trim();
@@ -21,6 +22,7 @@ export async function logAppointment(formData: FormData) {
   }
 
   const supabase = getServerSupabase();
+  const actor = await resolveActor(supabase);
 
   // Create a lead row so the appointment links to a homeowner record.
   // Consent stays false until they confirm on the form-of-record — Phase 2
@@ -58,6 +60,16 @@ export async function logAppointment(formData: FormData) {
       )}`,
     );
   }
+
+  await writeAudit({
+    actor_id: actor.id,
+    actor_role: actor.role,
+    action_type: 'appointment.booked',
+    entity_type: 'appointment',
+    entity_id: null,
+    description: `Appointment manually logged for ${homeowner}${address ? ` at ${address}` : ''}`,
+    metadata: { client_id: clientId, homeowner, address: address || null, lead_id: lead.id },
+  });
 
   revalidatePath('/overview');
   revalidatePath('/clients');

@@ -51,6 +51,18 @@ export const fmtDate = (iso: string) =>
     year: 'numeric',
   });
 
+// Full datetime including seconds — used in audit log.
+export const fmtDateFull = (iso: string) =>
+  new Date(iso).toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+
 export const fmtDateTime = (iso: string) =>
   new Date(iso).toLocaleString('en-GB', {
     day: '2-digit',

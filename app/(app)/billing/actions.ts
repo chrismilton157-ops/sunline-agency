@@ -15,6 +15,7 @@ import {
   type LeadForAllocation,
 } from '@/lib/allocation';
 import type { Appointment } from '@/lib/types';
+import { writeAudit } from '@/lib/audit';
 
 const PERIOD_RE = /^\d{4}-\d{2}$/;
 
@@ -168,6 +169,17 @@ export async function generateInvoices(formData: FormData) {
   revalidatePath('/allocation');
   revalidatePath('/portal/billing', 'layout');
 
+  const { user } = await requireOwner();
+  await writeAudit({
+    actor_id: user?.id ?? null,
+    actor_role: 'owner',
+    action_type: 'invoice.generated',
+    entity_type: 'invoice',
+    entity_id: null,
+    description: `Invoices generated for period ${period}: ${created} created, ${updated} updated, ${skipped} skipped`,
+    metadata: { period, created, updated, skipped },
+  });
+
   const qs = new URLSearchParams({
     period,
     created: String(created),
@@ -178,7 +190,7 @@ export async function generateInvoices(formData: FormData) {
 }
 
 export async function setInvoiceStatus(formData: FormData) {
-  await ownerOrThrow();
+  const { user } = await requireOwner();
   const id = String(formData.get('id') ?? '').trim();
   const next = String(formData.get('status') ?? '').trim() as InvoiceStatus;
   if (!id || !['draft', 'issued', 'paid'].includes(next)) {
@@ -186,6 +198,14 @@ export async function setInvoiceStatus(formData: FormData) {
   }
 
   const admin = getServerAdmin();
+
+  // Fetch current status for audit before/after.
+  const { data: prev } = await admin
+    .from('invoices')
+    .select('status, client_id, period')
+    .eq('id', id)
+    .single();
+
   const update: Record<string, unknown> = { status: next };
   if (next === 'issued') {
     update.issued_at = new Date().toISOString();
@@ -206,6 +226,17 @@ export async function setInvoiceStatus(formData: FormData) {
     .update(update)
     .eq('id', id);
   if (error) throw error;
+
+  const label = next === 'issued' ? 'issued' : next === 'paid' ? 'marked paid' : 'reset to draft';
+  await writeAudit({
+    actor_id: user?.id ?? null,
+    actor_role: 'owner',
+    action_type: `invoice.${next}`,
+    entity_type: 'invoice',
+    entity_id: id,
+    description: `Invoice ${label} — period ${prev?.period ?? '?'}`,
+    metadata: { before: { status: prev?.status }, after: { status: next }, client_id: prev?.client_id },
+  });
 
   revalidatePath('/billing');
   revalidatePath('/overview');

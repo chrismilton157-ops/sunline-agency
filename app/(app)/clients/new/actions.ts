@@ -5,6 +5,7 @@ import { getServerAdmin } from '@/lib/supabase/admin';
 import { loadRoutingState } from '@/lib/data';
 import { clusterPromises, type RoutingClient } from '@/lib/routing';
 import { revalidatePath } from 'next/cache';
+import { writeAudit } from '@/lib/audit';
 
 export type OverpromiseResult = {
   warnings: {
@@ -72,7 +73,7 @@ export type CreateClientResult =
 export async function createClient(
   input: CreateClientInput,
 ): Promise<CreateClientResult> {
-  const { role } = await requireOwner();
+  const { user, role } = await requireOwner();
   if (role !== 'owner') {
     return { ok: false, error: 'Owner access required.' };
   }
@@ -151,6 +152,25 @@ export async function createClient(
 
   revalidatePath('/clients');
   revalidatePath('/routing');
+
+  await writeAudit({
+    actor_id: user?.id ?? null,
+    actor_role: 'owner',
+    action_type: 'client.created',
+    entity_type: 'client',
+    entity_id: clientId,
+    description: `Client created: ${input.company.trim()} (${input.region.trim() || 'no region'})`,
+    metadata: {
+      company: input.company.trim(),
+      contact: input.contact.trim() || null,
+      region: input.region.trim() || null,
+      per_sit_fee: input.perSitFee,
+      weekly_promise: input.weeklyPromise,
+      priority: input.priority,
+      postcodes: input.postcodes,
+      login_email: input.loginEmail.trim().toLowerCase(),
+    },
+  });
 
   return {
     ok: true,

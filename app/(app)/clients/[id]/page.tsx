@@ -8,6 +8,7 @@ import { HealthBadge } from '@/components/HealthBadge';
 import { MetricCard } from '@/components/MetricCard';
 import { SatVsSoldChart } from '@/components/SatVsSoldChart';
 import { loadAll, loadClient } from '@/lib/data';
+import { getServerAdmin } from '@/lib/supabase/admin';
 import {
   clientMetrics,
   flagReasons,
@@ -20,6 +21,7 @@ import {
 } from '@/lib/metrics';
 import {
   fmtDate,
+  fmtDateFull,
   fmtInt,
   fmtMins,
   fmtMoney,
@@ -36,11 +38,29 @@ export default async function ClientDetailPage({
 }: {
   params: { id: string };
 }) {
-  const [all, single] = await Promise.all([
+  const admin = getServerAdmin();
+
+  const [all, single, auditRes] = await Promise.all([
     loadAll(),
     loadClient(params.id).catch(() => null),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (admin as any)
+      .from('audit_log')
+      .select('id,created_at,actor_role,action_type,description')
+      .eq('entity_type', 'client')
+      .eq('entity_id', params.id)
+      .order('created_at', { ascending: false })
+      .limit(20),
   ]);
   if (!single) notFound();
+
+  const clientHistory: {
+    id: string;
+    created_at: string;
+    actor_role: string;
+    action_type: string;
+    description: string;
+  }[] = auditRes.data ?? [];
 
   const { client, appointments, leads } = single;
   const sitsTotal = all.appointments.filter(
@@ -272,6 +292,31 @@ export default async function ClientDetailPage({
           </tbody>
         </table>
       </section>
+
+      {clientHistory.length > 0 && (
+        <section className="card overflow-hidden">
+          <header className="px-5 py-3 border-b border-hairline flex items-center justify-between">
+            <h2 className="font-semibold text-sm">Activity history</h2>
+            <a
+              href={`/audit?entity_type=client&entity_id=${client.id}`}
+              className="text-xs text-amber hover:underline"
+            >
+              Full audit log →
+            </a>
+          </header>
+          <ul className="divide-y divide-stone-100">
+            {clientHistory.map((entry) => (
+              <li key={entry.id} className="px-5 py-2.5 flex items-start gap-3">
+                <span className="tabular-nums text-xs text-muted whitespace-nowrap mt-0.5 w-32 shrink-0">
+                  {fmtDateFull(entry.created_at)}
+                </span>
+                <span className="text-sm text-stone-800 flex-1">{entry.description}</span>
+                <span className="text-xs text-muted shrink-0">{entry.actor_role}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }
