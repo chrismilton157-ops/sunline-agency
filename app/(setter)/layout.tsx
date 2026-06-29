@@ -10,6 +10,7 @@ export default async function SetterLayout({
   const { user, role } = await requireOwner();
   if (!user) redirect('/login');
   if (role === 'client') redirect('/portal');
+  if (role === 'confirmer') redirect('/cockpit');
   // Both owner and setter can reach queue; anything else goes to login
   if (role !== 'owner' && role !== 'setter') redirect('/login');
 

@@ -165,6 +165,74 @@ export type ConfirmationAppointment = {
   attempts: ConfirmationAttempt[];
 };
 
+// ---------- Phase 20: confirmer cockpit ----------
+
+export type AppointmentEventType =
+  | 'confirmed'
+  | 'attempt'
+  | 'rescheduled'
+  | 'cancelled'
+  | 'inbound_call';
+
+export type CancellationReason =
+  | 'changed_mind'
+  | 'went_with_another'
+  | 'cant_afford'
+  | 'circumstances_changed'
+  | 'decision_makers_unavailable'
+  | 'unresponsive'
+  | 'other';
+
+export type RescheduleSource = 'inbound' | 'outbound';
+
+export type AppointmentEvent = {
+  id: string;
+  appointment_id: string;
+  event_type: AppointmentEventType;
+  actor_id: string | null;
+  attempt_method: string | null;
+  old_appt_date: string | null;
+  new_appt_date: string | null;
+  reschedule_source: RescheduleSource | null;
+  cancellation_reason: CancellationReason | null;
+  cancellation_note: string | null;
+  inbound_outcome: string | null;
+  notes: string | null;
+  created_at: string;
+};
+
+// Appointment enriched with lead/client data + events — used in the cockpit.
+export type CockpitAppointment = {
+  id: string;
+  lead_id: string;
+  client_id: string;
+  appt_date: string;
+  setter: string | null;
+  outcome: string;           // 'booked' | 'cancelled' | etc.
+  confirmed_at: string | null;
+  lead_name: string | null;
+  lead_phone: string | null;
+  lead_address: string | null;
+  client_company: string;
+  events: AppointmentEvent[];
+  // Derived from events + legacy attempts
+  attempt_count: number;
+  last_attempt_at: string | null;
+};
+
+export type ConfirmerStats = {
+  confirmer_id: string;
+  confirmer_email: string;
+  confirmation_rate: number | null;   // % of booked appts confirmed before date
+  show_rate: number | null;           // % of confirmed appts that actually sat/sold
+  save_rate: number | null;           // % of would-be cancellations converted to reschedule
+  reschedules: number;
+  cancellations: number;
+  inbound_calls: number;
+  confirmed_count: number;
+  cancellation_reasons: Record<string, number>;
+};
+
 // ---------- Phase 6: invoices ----------
 
 export type InvoiceStatus = 'draft' | 'issued' | 'paid';
