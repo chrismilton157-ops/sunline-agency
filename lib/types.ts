@@ -172,7 +172,13 @@ export type AppointmentEventType =
   | 'attempt'
   | 'rescheduled'
   | 'cancelled'
-  | 'inbound_call';
+  | 'inbound_call'
+  | 'note'
+  | 'callback_set'
+  | 'snoozed'
+  | 'text_sent'
+  | 'flagged'
+  | 'outcome_logged';
 
 export type CancellationReason =
   | 'changed_mind'
@@ -199,6 +205,12 @@ export type AppointmentEvent = {
   inbound_outcome: string | null;
   notes: string | null;
   created_at: string;
+  // Phase 21 additions
+  callback_at: string | null;
+  snooze_until: string | null;
+  sms_template_name: string | null;
+  flag_reason: string | null;
+  reschedule_reason: string | null;
 };
 
 // Appointment enriched with lead/client data + events — used in the cockpit.
@@ -218,6 +230,27 @@ export type CockpitAppointment = {
   // Derived from events + legacy attempts
   attempt_count: number;
   last_attempt_at: string | null;
+  // Phase 21 additions
+  callback_at: string | null;
+  callback_set_by: string | null;
+  snooze_until: string | null;
+  notes: string | null;
+  decision_makers_present: boolean | null;
+  confirmation_strength: string | null;
+  flagged: boolean;
+  flagged_reason: string | null;
+  flagged_at: string | null;
+};
+
+export type SmsTemplate = { id: string; name: string; body: string };
+
+export type ConfirmerStatsRich = ConfirmerStats & {
+  callbacks_set: number;
+  no_shows_logged: number;
+  texts_sent: number;
+  flagged_count: number;
+  today_confirmed: number;
+  week_trend: number[]; // 7 days, confirmed count each day (oldest first)
 };
 
 export type ConfirmerStats = {

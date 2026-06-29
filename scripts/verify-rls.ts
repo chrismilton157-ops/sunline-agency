@@ -610,6 +610,58 @@ async function main() {
       !!aeErr || (aeData ?? []).length === 0,
       { aeErr, aeData },
     );
+
+    // == Confirmer expanded checks (Phase 21) ==
+
+    // New columns (callback_at, snooze_until, notes, flagged) readable on appointments
+    const { data: extData, error: extErr } = await confirmerPortal
+      .from('appointments')
+      .select('id, callback_at, snooze_until, notes, flagged')
+      .limit(1);
+    check(
+      'confirmer can read new Phase 21 appointment columns',
+      !extErr,
+      { extErr, rowCount: extData?.length },
+    );
+
+    // sms_templates: confirmer can read
+    const { data: smsData, error: smsErr } = await confirmerPortal
+      .from('sms_templates')
+      .select('id, name, body')
+      .limit(5);
+    check(
+      'confirmer can read sms_templates (confirmer_read policy)',
+      !smsErr,
+      { smsErr, rowCount: smsData?.length },
+    );
+
+    // sms_templates: confirmer CANNOT write
+    const { error: smsInsertErr } = await confirmerPortal
+      .from('sms_templates')
+      .insert({ name: 'HACK', body: 'bad template' });
+    check(
+      'confirmer cannot insert into sms_templates (owner-only write)',
+      !!smsInsertErr,
+      { smsInsertErr: smsInsertErr?.message },
+    );
+
+    // confirmer cannot read invoices (money guard)
+    const { data: inv2Data, error: inv2Err } = await confirmerPortal
+      .from('invoices').select('id, total').limit(1);
+    check(
+      'confirmer cannot read invoices (Phase 21 recheck)',
+      !!inv2Err || (inv2Data ?? []).length === 0,
+      { inv2Err, inv2Data },
+    );
+
+    // confirmer cannot read allocations if table exists
+    const { data: allocData, error: allocErr } = await confirmerPortal
+      .from('cost_allocations').select('id').limit(1);
+    check(
+      'confirmer cannot read cost_allocations',
+      !!allocErr || (allocData ?? []).length === 0,
+      { allocErr, allocData },
+    );
   }
 
   // -----------------------------------------------------------------------

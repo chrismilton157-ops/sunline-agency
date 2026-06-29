@@ -7,6 +7,7 @@ import {
   portfolio,
 } from '@/lib/metrics';
 import { fmtMoney2, fmtPct } from '@/lib/format';
+import { clearFlag } from '@/app/(confirmer)/cockpit/actions';
 
 import type { Metadata } from 'next';
 export const metadata: Metadata = { title: 'Today' };
@@ -16,6 +17,36 @@ export const dynamic = 'force-dynamic';
 // ---------------------------------------------------------------------------
 // Data loader — all reads via service-role admin so we see full data.
 // ---------------------------------------------------------------------------
+
+type FlaggedAppt = {
+  id: string;
+  appt_date: string;
+  flagged_reason: string | null;
+  flagged_at: string | null;
+  lead_name: string | null;
+  lead_phone: string | null;
+};
+
+async function loadFlaggedAppointments(): Promise<FlaggedAppt[]> {
+  const admin = getServerAdmin();
+  const { data } = await admin
+    .from('appointments')
+    .select('id, appt_date, flagged_reason, flagged_at, leads(name, phone)')
+    .eq('flagged', true)
+    .order('flagged_at', { ascending: false })
+    .limit(20);
+  return (data ?? []).map((a: Record<string, unknown>) => {
+    const lead = a.leads as { name?: string | null; phone?: string | null } | null;
+    return {
+      id: a.id as string,
+      appt_date: a.appt_date as string,
+      flagged_reason: (a.flagged_reason as string | null) ?? null,
+      flagged_at: (a.flagged_at as string | null) ?? null,
+      lead_name: lead?.name ?? null,
+      lead_phone: lead?.phone ?? null,
+    };
+  });
+}
 
 async function loadTodayData() {
   const admin = getServerAdmin();
@@ -119,6 +150,54 @@ async function loadTodayData() {
 }
 
 // ---------------------------------------------------------------------------
+// Flagged appointments section
+// ---------------------------------------------------------------------------
+
+function FlaggedSection({ flagged }: { flagged: FlaggedAppt[] }) {
+  if (flagged.length === 0) return null;
+
+  function fmtDate(iso: string) {
+    return new Date(iso).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  }
+  function fmtShort(iso: string) {
+    return new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  }
+
+  return (
+    <section className="card">
+      <header className="px-5 py-4 border-b border-hairline flex items-baseline justify-between">
+        <h2 className="font-semibold text-red-600">🚩 Flagged by confirmer</h2>
+        <span className="text-xs text-red-400">{flagged.length} active flag{flagged.length !== 1 ? 's' : ''}</span>
+      </header>
+      <ul className="divide-y divide-hairline">
+        {flagged.map((a) => (
+          <li key={a.id} className="px-5 py-3 flex items-start gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="font-medium text-sm text-ink">{a.lead_name ?? 'Unknown homeowner'}</div>
+              <div className="text-xs text-muted mt-0.5">
+                Appt: {fmtDate(a.appt_date)}
+                {a.flagged_at && <> · Flagged {fmtShort(a.flagged_at)}</>}
+              </div>
+              {a.flagged_reason && (
+                <div className="text-xs text-red-600 mt-1 font-medium">{a.flagged_reason}</div>
+              )}
+            </div>
+            <form action={async () => { 'use server'; await clearFlag(a.id); }}>
+              <button
+                type="submit"
+                className="text-xs px-3 py-1.5 rounded-lg border border-hairline bg-white text-muted hover:bg-hairline/30 transition-colors shrink-0"
+              >
+                Clear flag
+              </button>
+            </form>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Card primitives
 // ---------------------------------------------------------------------------
 
@@ -183,15 +262,18 @@ function CommandCard({
 // ---------------------------------------------------------------------------
 
 export default async function TodayPage() {
-  const {
-    newLeads,
-    needsConfirming,
-    alerts,
-    draftCount,
-    leadsToday,
-    apptsBookedToday,
-    sitsToday,
-  } = await loadTodayData();
+  const [
+    {
+      newLeads,
+      needsConfirming,
+      alerts,
+      draftCount,
+      leadsToday,
+      apptsBookedToday,
+      sitsToday,
+    },
+    flagged,
+  ] = await Promise.all([loadTodayData(), loadFlaggedAppointments()]);
 
   const today = new Date().toLocaleDateString('en-GB', {
     weekday: 'long',
@@ -288,6 +370,9 @@ export default async function TodayPage() {
           </Link>
         </div>
       </section>
+
+      {/* Flagged by confirmer */}
+      <FlaggedSection flagged={flagged} />
 
       {/* Today's numbers row */}
       <section>
