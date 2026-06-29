@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { getServerAdmin } from '@/lib/supabase/admin';
-import { loadAll } from '@/lib/data';
+import { loadAll, groupByClientId } from '@/lib/data';
 import { computeChurnRisk } from '@/lib/churn-risk';
 import type { ChurnBand, ChurnRiskResult } from '@/lib/churn-risk';
 import type { Metadata } from 'next';
@@ -28,11 +28,15 @@ async function loadChurnData() {
     loginsByClient.set(row.client_id, arr);
   }
 
+  const apptsByClient = groupByClientId(appointments);
+  const leadsByClient = groupByClientId(leads);
+
   const results: ChurnRiskResult[] = activeClients.map((client) => {
-    const clientAppts = appointments.filter((a) => a.client_id === client.id);
-    const clientLeads = leads
-      .filter((l) => l.client_id === client.id)
-      .map((l) => ({ client_id: client.id, created_at: l.created_at }));
+    const clientAppts = apptsByClient.get(client.id) ?? [];
+    const clientLeads = (leadsByClient.get(client.id) ?? []).map((l) => ({
+      client_id: client.id,
+      created_at: l.created_at,
+    }));
     const logins = loginsByClient.get(client.id) ?? [];
     return computeChurnRisk(client, clientAppts, clientLeads, logins);
   });
