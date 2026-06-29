@@ -29,6 +29,9 @@
   .btn-primary {
     @apply bg-amber text-white hover:bg-[#C76A2D] disabled:opacity-60;
   }
+  .btn-secondary {
+    @apply border border-hairline text-ink hover:bg-hairline/60;
+  }
   .btn-ghost {
     @apply text-ink hover:bg-hairline/60;
   }

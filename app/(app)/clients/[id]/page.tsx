@@ -231,11 +231,19 @@ export default async function ClientDetailPage({
       </section>
 
       <section className="card">
-        <header className="px-5 py-4 border-b border-hairline">
-          <h2 className="font-semibold">Appointments</h2>
-          <p className="text-muted text-xs mt-0.5">
-            Change outcome or quality rating inline — saves immediately.
-          </p>
+        <header className="px-5 py-4 border-b border-hairline flex items-start justify-between gap-3">
+          <div>
+            <h2 className="font-semibold">Appointments</h2>
+            <p className="text-muted text-xs mt-0.5">
+              Change outcome or quality rating inline — saves immediately.
+            </p>
+          </div>
+          <a
+            href={`/api/export/appointments?client=${client.id}`}
+            className="btn btn-secondary shrink-0 text-xs"
+          >
+            Export CSV
+          </a>
         </header>
         <table className="w-full text-sm">
           <thead className="text-muted text-xs uppercase">

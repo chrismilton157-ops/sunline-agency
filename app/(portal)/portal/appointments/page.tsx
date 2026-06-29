@@ -31,13 +31,23 @@ export default async function PortalAppointmentsPage() {
   return (
     <div className="space-y-8">
       <header>
-        <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
-          Appointments
-        </h1>
-        <p className="text-muted text-sm mt-1">
-          Upcoming sits and the outcome of recent ones — change outcome and
-          quality inline.
-        </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
+              Appointments
+            </h1>
+            <p className="text-muted text-sm mt-1">
+              Upcoming sits and the outcome of recent ones — change outcome and
+              quality inline.
+            </p>
+          </div>
+          <a
+            href="/api/export/portal-appointments"
+            className="btn btn-secondary shrink-0 text-xs"
+          >
+            Export CSV
+          </a>
+        </div>
       </header>
 
       {/* UPCOMING */}
