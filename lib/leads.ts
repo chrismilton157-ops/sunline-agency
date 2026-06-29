@@ -8,6 +8,7 @@ import {
 } from './qualifying';
 import { routeLead, type RoutingClient } from './routing';
 import { sendSms } from './sms';
+import { writeAudit } from './audit';
 
 // Sunline Phase 5: lead capture business logic.
 //
@@ -224,6 +225,40 @@ export async function captureLead(
     smsReason = notify.sent ? null : notify.reason;
   }
 
+  // 4. Audit.
+  if (qual.qualified) {
+    await writeAudit({
+      actor_id: null,
+      actor_role: 'public',
+      action_type: 'lead.created',
+      entity_type: 'lead',
+      entity_id: inserted.id,
+      description: `Lead created via public form: ${s.name.trim()} (${s.postcode.trim().toUpperCase()})`,
+      metadata: { ruleFired, assignedClientId: clientId, assignedCompany: company },
+    });
+    if (clientId) {
+      await writeAudit({
+        actor_id: null,
+        actor_role: 'system',
+        action_type: 'lead.routed',
+        entity_type: 'lead',
+        entity_id: inserted.id,
+        description: `Lead routed to ${company ?? clientId} — rule: ${ruleFired}`,
+        metadata: { assignedClientId: clientId, assignedCompany: company, ruleFired },
+      });
+    }
+  } else {
+    await writeAudit({
+      actor_id: null,
+      actor_role: 'system',
+      action_type: 'lead.disqualified',
+      entity_type: 'lead',
+      entity_id: inserted.id,
+      description: `Lead auto-disqualified at capture: ${s.name.trim()} — reason: ${ruleFired}`,
+      metadata: { ruleFired },
+    });
+  }
+
   return {
     ok: true,
     leadId: inserted.id,
@@ -280,8 +315,28 @@ export async function notifyLeadAfterCapture(leadId: string) {
 // per the FK definition in migration 0001. The owner is making an
 // explicit erasure decision; this is the lever for ICO compliance.
 
-export async function deleteLeadHard(leadId: string): Promise<void> {
+export async function deleteLeadHard(
+  leadId: string,
+  actorId?: string | null,
+): Promise<void> {
   const admin = getServerAdmin();
+
+  // Read name before delete for the audit description.
+  const { data: lead } = await admin
+    .from('leads')
+    .select('name, postcode')
+    .eq('id', leadId)
+    .single();
+
   const { error } = await admin.from('leads').delete().eq('id', leadId);
   if (error) throw error;
+
+  await writeAudit({
+    actor_id: actorId ?? null,
+    actor_role: actorId ? 'owner' : 'system',
+    action_type: 'lead.erased',
+    entity_type: 'lead',
+    entity_id: leadId,
+    description: `Lead erased (GDPR right-to-erasure): ${lead?.name ?? leadId} (${lead?.postcode ?? ''})`,
+  });
 }

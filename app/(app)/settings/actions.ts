@@ -3,7 +3,8 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { requireOwner } from '@/lib/data';
 import { getServerSupabase } from '@/lib/supabase/server';
-import { SETTINGS_DEFAULTS } from '@/lib/settings';
+import { SETTINGS_DEFAULTS, getSettings } from '@/lib/settings';
+import { writeAudit } from '@/lib/audit';
 
 function parsePositiveNum(v: FormDataEntryValue | null, max?: number): number | null {
   const n = parseFloat(String(v ?? ''));
@@ -13,7 +14,7 @@ function parsePositiveNum(v: FormDataEntryValue | null, max?: number): number | 
 }
 
 export async function saveSettings(formData: FormData) {
-  const { role } = await requireOwner();
+  const { user, role } = await requireOwner();
   if (role !== 'owner') throw new Error('Forbidden');
 
   const markup = parsePositiveNum(formData.get('default_management_markup_pct'), 100);
@@ -32,6 +33,8 @@ export async function saveSettings(formData: FormData) {
   ) {
     redirect('/settings?error=One+or+more+values+are+invalid.');
   }
+
+  const before = await getSettings();
 
   const supabase = await getServerSupabase();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -52,6 +55,28 @@ export async function saveSettings(formData: FormData) {
 
   if (error) redirect(`/settings?error=${encodeURIComponent(error.message)}`);
 
+  await writeAudit({
+    actor_id: user?.id ?? null,
+    actor_role: 'owner',
+    action_type: 'settings.changed',
+    entity_type: 'settings',
+    entity_id: '1',
+    description: 'Agency settings updated',
+    metadata: {
+      before,
+      after: {
+        default_management_markup_pct: markup,
+        default_per_sit_fee:           perSit,
+        min_monthly_bill_gbp:          minBill,
+        bill_band_80_120_rep:          rep80,
+        bill_band_120_200_rep:         rep120,
+        bill_band_200_plus_rep:        rep200,
+        est_cost_per_lead:             cpl,
+        lead_to_appt_rate:             (rate / 100),
+      },
+    },
+  });
+
   revalidatePath('/settings');
   revalidatePath('/billing');
   revalidatePath('/clients/new');
@@ -59,9 +84,10 @@ export async function saveSettings(formData: FormData) {
 }
 
 export async function resetSettings() {
-  const { role } = await requireOwner();
+  const { user, role } = await requireOwner();
   if (role !== 'owner') throw new Error('Forbidden');
 
+  const before = await getSettings();
   const d = SETTINGS_DEFAULTS;
   const supabase = await getServerSupabase();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -81,6 +107,16 @@ export async function resetSettings() {
     });
 
   if (error) redirect(`/settings?error=${encodeURIComponent(error.message)}`);
+
+  await writeAudit({
+    actor_id: user?.id ?? null,
+    actor_role: 'owner',
+    action_type: 'settings.reset',
+    entity_type: 'settings',
+    entity_id: '1',
+    description: 'Agency settings reset to defaults',
+    metadata: { before, after: d },
+  });
 
   revalidatePath('/settings');
   revalidatePath('/billing');

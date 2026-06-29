@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache';
 import { getServerSupabase } from '@/lib/supabase/server';
 import { getServerAdmin } from '@/lib/supabase/admin';
+import { writeAudit } from '@/lib/audit';
 
 // Stale claim threshold: 30 minutes
 const STALE_MS = 30 * 60 * 1000;
@@ -37,11 +38,29 @@ export async function claimLead(leadId: string) {
     );
 
   // Record first-ever claim permanently (only writes if not already set)
+  const { data: wasClaimed } = await admin
+    .from('leads')
+    .select('first_claimed_at')
+    .eq('id', leadId)
+    .single();
+
   await admin
     .from('leads')
     .update({ first_claimed_by: user.id, first_claimed_at: now })
     .eq('id', leadId)
     .is('first_claimed_at', null);
+
+  if (!wasClaimed?.first_claimed_at) {
+    await writeAudit({
+      actor_id: user.id,
+      actor_role: 'setter',
+      action_type: 'lead.claimed',
+      entity_type: 'lead',
+      entity_id: leadId,
+      description: `Lead first claimed by setter (${user.email ?? user.id})`,
+      metadata: { setter_id: user.id, claimed_at: now },
+    });
+  }
 
   revalidatePath('/queue');
 }
@@ -112,20 +131,44 @@ export async function submitDisposition(formData: FormData) {
   if (leadErr) throw leadErr;
 
   // 3) If booked, create the appointment
+  let newApptId: string | null = null;
   if (disposition === 'booked') {
     const apptDate = formData.get('appt_date') as string;
     const clientId = currentLead?.client_id as string | null;
     if (apptDate && clientId) {
-      const { error: apptErr } = await admin.from('appointments').insert({
+      const { data: apptRow, error: apptErr } = await admin.from('appointments').insert({
         lead_id: leadId,
         client_id: clientId,
         appt_date: new Date(apptDate).toISOString(),
         setter: user.email,
         setter_id: user.id,
         outcome: 'booked',
-      });
+      }).select('id').single();
       if (apptErr) throw apptErr;
+      newApptId = apptRow?.id ?? null;
     }
+  }
+
+  await writeAudit({
+    actor_id: user.id,
+    actor_role: 'setter',
+    action_type: 'lead.disposition_recorded',
+    entity_type: 'lead',
+    entity_id: leadId,
+    description: `Setter disposition recorded: ${disposition}${disqualReason ? ` (${disqualReason})` : ''}`,
+    metadata: { disposition, callback_at: callbackAt, disqual_reason: disqualReason, appointment_id: newApptId },
+  });
+
+  if (newApptId) {
+    await writeAudit({
+      actor_id: user.id,
+      actor_role: 'setter',
+      action_type: 'appointment.booked',
+      entity_type: 'appointment',
+      entity_id: newApptId,
+      description: `Appointment booked by setter (${user.email ?? user.id})`,
+      metadata: { lead_id: leadId, setter_id: user.id, setter_email: user.email },
+    });
   }
 
   revalidatePath('/queue');
@@ -194,20 +237,44 @@ export async function submitWrapUp(formData: FormData) {
   if (leadErr) throw leadErr;
 
   // Create appointment only when qualified
+  let wrapApptId: string | null = null;
   if (!isDisqualified) {
     const apptDate = formData.get('appt_date') as string;
     const clientId = currentLead?.client_id as string | null;
     if (apptDate && clientId) {
-      const { error: apptErr } = await admin.from('appointments').insert({
+      const { data: wrapAppt, error: apptErr } = await admin.from('appointments').insert({
         lead_id: leadId,
         client_id: clientId,
         appt_date: new Date(apptDate).toISOString(),
         setter: user.email,
         setter_id: user.id,
         outcome: 'booked',
-      });
+      }).select('id').single();
       if (apptErr) throw apptErr;
+      wrapApptId = wrapAppt?.id ?? null;
     }
+  }
+
+  await writeAudit({
+    actor_id: user.id,
+    actor_role: 'setter',
+    action_type: 'lead.disposition_recorded',
+    entity_type: 'lead',
+    entity_id: leadId,
+    description: `Setter wrap-up: ${isDisqualified ? `disqualified (${disqualReason})` : 'booked'}`,
+    metadata: { disqual_reason: disqualReason, appointment_id: wrapApptId },
+  });
+
+  if (wrapApptId) {
+    await writeAudit({
+      actor_id: user.id,
+      actor_role: 'setter',
+      action_type: 'appointment.booked',
+      entity_type: 'appointment',
+      entity_id: wrapApptId,
+      description: `Appointment booked via qualifying wrap-up by setter (${user.email ?? user.id})`,
+      metadata: { lead_id: leadId, setter_id: user.id },
+    });
   }
 
   revalidatePath('/queue');

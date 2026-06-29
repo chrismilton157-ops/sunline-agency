@@ -468,6 +468,78 @@ async function main() {
   }
 
   // -----------------------------------------------------------------------
+  // Phase 18 — Audit log: owner-only read, append-only (no update/delete).
+  // -----------------------------------------------------------------------
+  console.log('Audit log access controls:');
+  {
+    // 1. Seed a test entry via the service role so we have at least one row.
+    const { data: seedEntry, error: seedErr } = await admin
+      .from('audit_log')
+      .insert({
+        actor_id:   null,
+        actor_role: 'system',
+        action_type: 'test.rls_check',
+        entity_type: 'test',
+        entity_id:  null,
+        description: 'RLS verification test entry',
+      })
+      .select('id')
+      .single();
+    check('service role can insert into audit_log', !seedErr && !!seedEntry?.id, { seedErr });
+
+    // 2. Owner can read the entry.
+    const { data: ownerAudit, error: ownerAuditErr } = await ownerClient
+      .from('audit_log').select('id').limit(10);
+    check(
+      'owner can read audit_log',
+      !ownerAuditErr && (ownerAudit?.length ?? 0) > 0,
+      { ownerAuditErr, ownerAudit },
+    );
+
+    // 3. Client cannot read audit_log.
+    const { data: clientAudit, error: clientAuditErr } = await clientPortal
+      .from('audit_log').select('id').limit(10);
+    check(
+      'client cannot read audit_log',
+      !!clientAuditErr || (clientAudit ?? []).length === 0,
+      { clientAuditErr, clientAudit },
+    );
+
+    // 4. Setter cannot read audit_log.
+    const { data: setterAudit, error: setterAuditErr } = await setterPortal
+      .from('audit_log').select('id').limit(10);
+    check(
+      'setter cannot read audit_log',
+      !!setterAuditErr || (setterAudit ?? []).length === 0,
+      { setterAuditErr, setterAudit },
+    );
+
+    // 5. Service role cannot UPDATE rows (append-only trigger).
+    if (seedEntry?.id) {
+      const { error: updateErr } = await admin
+        .from('audit_log')
+        .update({ description: 'tampered' })
+        .eq('id', seedEntry.id);
+      check(
+        'audit_log is append-only — update rejected by trigger',
+        !!updateErr,
+        { updateErr: updateErr?.message },
+      );
+
+      // 6. Service role cannot DELETE rows (append-only trigger).
+      const { error: deleteErr } = await admin
+        .from('audit_log')
+        .delete()
+        .eq('id', seedEntry.id);
+      check(
+        'audit_log is append-only — delete rejected by trigger',
+        !!deleteErr,
+        { deleteErr: deleteErr?.message },
+      );
+    }
+  }
+
+  // -----------------------------------------------------------------------
   // Demo client view — optional. Runs only when DEMO_CLIENT_EMAIL and
   // DEMO_CLIENT_PASSWORD are set and seed:demo has been run first.
   // Verifies the demo account is as isolated as any real client.

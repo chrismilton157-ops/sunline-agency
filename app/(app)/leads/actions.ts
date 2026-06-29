@@ -12,13 +12,13 @@ import { deleteLeadHard } from '@/lib/leads';
 // definition in migration 0001 — full erasure of the homeowner's data.
 
 export async function deleteLead(formData: FormData) {
-  const { role } = await requireOwner();
+  const { user, role } = await requireOwner();
   if (role !== 'owner') throw new Error('Forbidden');
 
   const id = String(formData.get('id') ?? '').trim();
   if (!id) throw new Error('Missing lead id');
 
-  await deleteLeadHard(id);
+  await deleteLeadHard(id, user?.id ?? null);
 
   revalidatePath('/leads');
   revalidatePath('/overview');
