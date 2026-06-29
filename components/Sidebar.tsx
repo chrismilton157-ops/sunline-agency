@@ -19,6 +19,7 @@ const OWNER_ITEMS = [
   { href: '/log',           label: 'Log activity' },
   { href: '/settings',      label: 'Settings' },
   { href: '/enquiries',     label: 'Enquiries' },
+  { href: '/data-requests', label: 'Data requests' },
 ];
 
 const SETTER_ITEMS = [
