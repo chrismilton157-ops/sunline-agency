@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { PortalSidebar } from '@/components/PortalSidebar';
 import { loadPortalForClient, requireSession } from '@/lib/data';
+import { getServerAdmin } from '@/lib/supabase/admin';
 
 export default async function PortalLayout({
   children,
@@ -15,6 +16,13 @@ export default async function PortalLayout({
   if (role !== 'client' || !clientId) {
     redirect('/login?error=No+client+linked+to+this+account');
   }
+
+  // Record a lightweight login event for churn-risk tracking (owner-only table).
+  // Fire-and-forget via void — don't block the page render if it fails.
+  const admin = getServerAdmin();
+  void admin
+    .from('portal_activity')
+    .insert({ client_id: clientId, event_type: 'login' });
 
   // Sidebar needs the company name. Reuse the portal loader (single
   // round-trip per request; subpages can re-call it freely).
