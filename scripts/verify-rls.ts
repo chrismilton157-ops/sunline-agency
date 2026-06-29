@@ -21,6 +21,10 @@ const clientPassword = req('SEED_CLIENT_PASSWORD');
 const setterEmail = req('SEED_SETTER_EMAIL');
 const setterPassword = req('SEED_SETTER_PASSWORD');
 
+// Optional — only checked when DEMO_CLIENT_EMAIL + DEMO_CLIENT_PASSWORD are set.
+const demoEmail    = process.env.DEMO_CLIENT_EMAIL;
+const demoPassword = process.env.DEMO_CLIENT_PASSWORD;
+
 const admin = createClient(url, service, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
@@ -442,6 +446,68 @@ async function main() {
         { storageErr: storageErr?.message },
       );
     }
+  }
+
+  // -----------------------------------------------------------------------
+  // Demo client view — optional. Runs only when DEMO_CLIENT_EMAIL and
+  // DEMO_CLIENT_PASSWORD are set and seed:demo has been run first.
+  // Verifies the demo account is as isolated as any real client.
+  // -----------------------------------------------------------------------
+  if (demoEmail && demoPassword) {
+    console.log(`Demo client view (${demoEmail}):`);
+    try {
+      const demoPortal = await signedInClient(demoEmail, demoPassword);
+
+      const { data: demoCs } = await admin.from('clients').select('id, company, is_demo');
+      const demoClient = demoCs?.find((c) => c.is_demo);
+
+      if (!demoClient) {
+        console.log('  ⚠ Demo client not found in DB — run npm run seed:demo first, then re-verify.');
+      } else {
+        // Demo client should only see its own clients row
+        const { data: portalCs } = await demoPortal.from('clients').select('id');
+        check('demo client sees only its own clients row',
+          portalCs?.length === 1 && portalCs[0].id === demoClient.id, portalCs);
+
+        // Demo client should not see BrightRoof or Northwind rows
+        const { data: otherCs } = await demoPortal.from('clients').select('id').neq('id', demoClient.id);
+        check('demo client cannot see other tenants\' clients rows',
+          (otherCs ?? []).length === 0, otherCs);
+
+        // Demo appointments are scoped to demo client
+        const { data: demoAppts } = await demoPortal.from('appointments').select('id, client_id');
+        check('demo client sees only its own appointments',
+          (demoAppts ?? []).every((a) => a.client_id === demoClient.id) && (demoAppts?.length ?? 0) > 0,
+          demoAppts);
+
+        // Demo invoices are scoped to demo client
+        const { data: demoInvs } = await demoPortal.from('invoices').select('id, client_id');
+        check('demo client sees only its own invoices',
+          (demoInvs ?? []).every((i) => i.client_id === demoClient.id) && (demoInvs?.length ?? 0) > 0,
+          demoInvs);
+
+        // Agency-only columns still hidden for demo client
+        const { error: adErr, data: adData } = await demoPortal
+          .from('clients').select('id, ad_spend_monthly');
+        check('demo client cannot read ad_spend_monthly',
+          !!adErr || (adData ?? []).every((r: Record<string, unknown>) => !('ad_spend_monthly' in r)),
+          { adErr, adData });
+
+        const { error: mmErr, data: mmData } = await demoPortal
+          .from('clients').select('id, management_markup_pct');
+        check('demo client cannot read management_markup_pct',
+          !!mmErr || (mmData ?? []).every((r: Record<string, unknown>) => !('management_markup_pct' in r)),
+          { mmErr, mmData });
+
+        const { data: demoCsAll } = await demoPortal.from('campaign_spend').select('id');
+        check('demo client cannot read campaign_spend',
+          (demoCsAll ?? []).length === 0, demoCsAll);
+      }
+    } catch (e: unknown) {
+      console.log('  ⚠ Demo client sign-in failed — run seed:demo first.', e instanceof Error ? e.message : e);
+    }
+  } else {
+    console.log('Demo client view: skipped (set DEMO_CLIENT_EMAIL + DEMO_CLIENT_PASSWORD to run).');
   }
 
   if (failed > 0) {

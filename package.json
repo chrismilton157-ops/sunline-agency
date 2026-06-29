@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "seed": "tsx scripts/seed.ts",
+    "seed:demo": "tsx scripts/seed-demo.ts",
     "verify:rls": "tsx scripts/verify-rls.ts"
   },
   "dependencies": {
