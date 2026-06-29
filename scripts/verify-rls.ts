@@ -665,6 +665,66 @@ async function main() {
   }
 
   // -----------------------------------------------------------------------
+  // Phase 22 — portal_activity (churn-risk login tracking): owner-only.
+  // -----------------------------------------------------------------------
+  console.log('Churn risk — portal_activity access controls:');
+  {
+    // Seed a test entry via service role
+    const { data: seedPa, error: seedPaErr } = await admin
+      .from('portal_activity')
+      .insert({ client_id: bright.id, event_type: 'login' })
+      .select('id')
+      .single();
+    check('service role can insert into portal_activity', !seedPaErr && !!seedPa?.id, { seedPaErr });
+
+    // Owner can read portal_activity
+    const { data: ownerPa, error: ownerPaErr } = await ownerClient
+      .from('portal_activity')
+      .select('id, client_id, event_type')
+      .limit(5);
+    check(
+      'owner can read portal_activity (churn scoring)',
+      !ownerPaErr && (ownerPa?.length ?? 0) > 0,
+      { ownerPaErr, count: ownerPa?.length },
+    );
+
+    // Client cannot read portal_activity
+    const { data: clientPa, error: clientPaErr } = await clientPortal
+      .from('portal_activity')
+      .select('id');
+    check(
+      'client cannot read portal_activity (owner-only RLS)',
+      !!clientPaErr || (clientPa ?? []).length === 0,
+      { clientPaErr, clientPa },
+    );
+
+    // Setter cannot read portal_activity
+    const { data: setPa, error: setPaErr } = await setterPortal
+      .from('portal_activity')
+      .select('id');
+    check(
+      'setter cannot read portal_activity (owner-only RLS)',
+      !!setPaErr || (setPa ?? []).length === 0,
+      { setPaErr, setPa },
+    );
+
+    // Confirmer cannot read portal_activity
+    const { data: conPa, error: conPaErr } = await confirmerPortal
+      .from('portal_activity')
+      .select('id');
+    check(
+      'confirmer cannot read portal_activity (owner-only RLS)',
+      !!conPaErr || (conPa ?? []).length === 0,
+      { conPaErr, conPa },
+    );
+
+    // Clean up seed entry
+    if (seedPa?.id) {
+      await admin.from('portal_activity').delete().eq('id', seedPa.id);
+    }
+  }
+
+  // -----------------------------------------------------------------------
   // Phase 18 — Audit log: owner-only read, append-only (no update/delete).
   // -----------------------------------------------------------------------
   console.log('Audit log access controls:');

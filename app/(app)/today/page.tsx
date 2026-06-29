@@ -6,6 +6,7 @@ import {
   MONTHLY_OVERHEAD,
   portfolio,
 } from '@/lib/metrics';
+import { computeChurnRisk } from '@/lib/churn-risk';
 import { fmtMoney2, fmtPct } from '@/lib/format';
 import { clearFlag } from '@/app/(confirmer)/cockpit/actions';
 
@@ -138,6 +139,32 @@ async function loadTodayData() {
     });
   }
 
+  // Churn risk: count of active clients flagged At risk or Watch
+  const admin2 = getServerAdmin();
+  const { data: loginRows } = await admin2
+    .from('portal_activity')
+    .select('client_id, occurred_at')
+    .eq('event_type', 'login');
+  const loginsByClient = new Map<string, { occurred_at: string }[]>();
+  for (const row of loginRows ?? []) {
+    const arr = loginsByClient.get(row.client_id) ?? [];
+    arr.push({ occurred_at: row.occurred_at });
+    loginsByClient.set(row.client_id, arr);
+  }
+  const activeClients = clients.filter((c) => c.status === 'active');
+  const churnResults = activeClients.map((c) =>
+    computeChurnRisk(
+      c,
+      appointments.filter((a) => a.client_id === c.id),
+      leads
+        .filter((l) => l.client_id === c.id)
+        .map((l) => ({ client_id: c.id, created_at: l.created_at })),
+      loginsByClient.get(c.id) ?? [],
+    ),
+  );
+  const atRiskCount = churnResults.filter((r) => r.band === 'At risk').length;
+  const watchCount = churnResults.filter((r) => r.band === 'Watch').length;
+
   return {
     newLeads: newLeadsRes.count ?? 0,
     needsConfirming,
@@ -146,6 +173,8 @@ async function loadTodayData() {
     leadsToday: leadsCreatedTodayRes.count ?? 0,
     apptsBookedToday: apptsBookedTodayRes.count ?? 0,
     sitsToday: sitsTodayRes.count ?? 0,
+    atRiskCount,
+    watchCount,
   };
 }
 
@@ -271,6 +300,8 @@ export default async function TodayPage() {
       leadsToday,
       apptsBookedToday,
       sitsToday,
+      atRiskCount,
+      watchCount,
     },
     flagged,
   ] = await Promise.all([loadTodayData(), loadFlaggedAppointments()]);
@@ -315,6 +346,19 @@ export default async function TodayPage() {
           ? 'Awaiting review and issue'
           : 'No draft invoices — billing is up to date',
       href: '/billing',
+    },
+    {
+      id: 'churn-risk',
+      status: (atRiskCount > 0 ? 'urgent' : watchCount > 0 ? 'warn' : 'clear') as CardStatus,
+      count: atRiskCount + watchCount,
+      label: 'Clients to watch for churn',
+      sublabel:
+        atRiskCount > 0
+          ? `${atRiskCount} at risk · ${watchCount} on watch — call them this week`
+          : watchCount > 0
+            ? `${watchCount} on watch — keep an eye on these`
+            : 'All clients are healthy — no churn signals',
+      href: '/churn',
     },
   ];
 
