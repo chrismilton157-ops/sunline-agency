@@ -36,6 +36,13 @@ export async function claimLead(leadId: string) {
       `queue_claimed_by.is.null,queue_claimed_at.lt.${staleThreshold},queue_claimed_by.eq.${user.id}`,
     );
 
+  // Record first-ever claim permanently (only writes if not already set)
+  await admin
+    .from('leads')
+    .update({ first_claimed_by: user.id, first_claimed_at: now })
+    .eq('id', leadId)
+    .is('first_claimed_at', null);
+
   revalidatePath('/queue');
 }
 
