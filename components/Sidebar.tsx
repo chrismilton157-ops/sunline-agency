@@ -42,7 +42,8 @@ export function Sidebar({ email, role }: { email: string; role?: string }) {
   return (
     <aside className="bg-sidebar text-white md:w-60 md:min-h-screen md:sticky md:top-0
                       flex md:flex-col items-center md:items-stretch
-                      px-4 py-3 md:py-6 gap-1 md:gap-1">
+                      px-4 py-2 md:py-6 gap-1 md:gap-1
+                      pb-[max(8px,env(safe-area-inset-bottom))] md:pb-6">
       <div className="hidden md:block mb-6 px-2">
         <div className="flex items-center gap-2">
           <svg width="20" height="20" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -65,7 +66,7 @@ export function Sidebar({ email, role }: { email: string; role?: string }) {
         </div>
       </div>
 
-      <nav className="flex md:flex-col gap-1 flex-1 overflow-x-auto">
+      <nav className="flex md:flex-col gap-1 flex-1 overflow-x-auto md:overflow-x-visible">
         {items.map((it) => {
           const active =
             path === it.href || path.startsWith(it.href + '/');
@@ -73,11 +74,12 @@ export function Sidebar({ email, role }: { email: string; role?: string }) {
             <Link
               key={it.href}
               href={it.href}
-              className={`px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap
+              className={`px-3 py-2.5 md:py-2 rounded-md text-sm font-medium whitespace-nowrap
+                min-h-[44px] flex items-center touch-manipulation
                 ${
                   active
                     ? 'bg-amber text-white'
-                    : 'text-white/80 hover:bg-white/5'
+                    : 'text-white/80 hover:bg-white/5 active:bg-white/10'
                 }`}
             >
               {it.label}
