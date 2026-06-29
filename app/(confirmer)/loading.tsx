@@ -12,8 +12,8 @@ export default function Loading() {
         ))}
       </section>
       <section className="space-y-2">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <Block key={i} className="h-14" />
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Block key={i} className="h-20" />
         ))}
       </section>
     </div>

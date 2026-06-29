@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { MetricCard } from '@/components/MetricCard';
 import { HealthBadge } from '@/components/HealthBadge';
 import { SatVsSoldChart } from '@/components/SatVsSoldChart';
-import { loadAll } from '@/lib/data';
+import { loadAll, groupByClientId } from '@/lib/data';
 import {
   clientMetrics,
   healthScore,
@@ -32,11 +32,14 @@ export default async function OverviewPage() {
     (a) => a.outcome === 'sat' || a.outcome === 'sold',
   ).length;
 
+  const apptsByClient = groupByClientId(appointments);
+  const leadsByClient = groupByClientId(leads);
+
   const perClient = clients.map((c) =>
     clientMetrics(
       c,
-      appointments.filter((a) => a.client_id === c.id),
-      leads.filter((l) => l.client_id === c.id),
+      apptsByClient.get(c.id) ?? [],
+      leadsByClient.get(c.id) ?? [],
       { monthlyOverhead: MONTHLY_OVERHEAD, totalSitsAcrossPortfolio: sitsTotal },
     ),
   );

@@ -91,21 +91,34 @@ async function fetchAgencyClientCols(
 
 export async function loadAll() {
   const supabase = getServerSupabase();
-  const [clientsRes, apptsRes, leadsRes] = await Promise.all([
+  const admin = getServerAdmin();
+  const [clientsRes, apptsRes, leadsRes, allAgencyColsRes] = await Promise.all([
     supabase.from('clients').select(CLIENT_SAFE_COLS).order('company'),
     supabase
       .from('appointments')
       .select(APPT_COLS)
       .order('appt_date', { ascending: false }),
     supabase.from('leads').select(LEAD_COLS),
+    admin
+      .from('clients')
+      .select('id, ad_spend_monthly, weekly_promise, priority, management_markup_pct'),
   ]);
 
   if (clientsRes.error) throw clientsRes.error;
   if (apptsRes.error) throw apptsRes.error;
   if (leadsRes.error) throw leadsRes.error;
+  if (allAgencyColsRes.error) throw allAgencyColsRes.error;
 
   const safeClients = (clientsRes.data ?? []) as ClientPublic[];
-  const agencyCols = await fetchAgencyClientCols(safeClients.map((c) => c.id));
+  const agencyCols = new Map<string, AgencyClientCols>();
+  for (const row of allAgencyColsRes.data ?? []) {
+    agencyCols.set(row.id as string, {
+      ad_spend_monthly: Number(row.ad_spend_monthly ?? 0),
+      weekly_promise: Number(row.weekly_promise ?? 0),
+      priority: Number(row.priority ?? 100),
+      management_markup_pct: Number(row.management_markup_pct ?? 20),
+    });
+  }
   const clients: Client[] = safeClients.map((c) => {
     const extra = agencyCols.get(c.id);
     return {
@@ -126,7 +139,7 @@ export async function loadAll() {
 
 export async function loadClient(clientId: string) {
   const supabase = getServerSupabase();
-  const [cRes, aRes, lRes] = await Promise.all([
+  const [cRes, aRes, lRes, agencyCols] = await Promise.all([
     supabase.from('clients').select(CLIENT_SAFE_COLS).eq('id', clientId).single(),
     supabase
       .from('appointments')
@@ -134,13 +147,13 @@ export async function loadClient(clientId: string) {
       .eq('client_id', clientId)
       .order('appt_date', { ascending: false }),
     supabase.from('leads').select(LEAD_COLS).eq('client_id', clientId),
+    fetchAgencyClientCols([clientId]),
   ]);
 
   if (cRes.error) throw cRes.error;
   if (aRes.error) throw aRes.error;
   if (lRes.error) throw lRes.error;
 
-  const agencyCols = await fetchAgencyClientCols([clientId]);
   const extra = agencyCols.get(clientId);
   const client: Client = {
     ...(cRes.data as ClientPublic),
@@ -258,9 +271,16 @@ export async function loadRoutingState(now: Date = new Date()) {
     postcodesByClient.set(row.client_id, list);
   }
 
+  const leadsByClient = new Map<string, { client_id: string; created_at: string }[]>();
+  for (const l of leads) {
+    const list = leadsByClient.get(l.client_id) ?? [];
+    list.push(l);
+    leadsByClient.set(l.client_id, list);
+  }
+
   const routingClients: RoutingClient[] = safeClients.map((c) => {
     const extra = agencyCols.get(c.id);
-    const own = leads.filter((l) => l.client_id === c.id);
+    const own = leadsByClient.get(c.id) ?? [];
     const leadsThisWeek = own.filter(
       (l) => new Date(l.created_at).getTime() >= weekStart.getTime(),
     ).length;
@@ -588,6 +608,21 @@ export async function loadAllocationView(
     totalUnallocated: round2(totalUnallocated),
     perClientTotals,
   };
+}
+
+// Groups rows that carry a client_id into a Map for O(1) per-client lookup,
+// instead of re-scanning the full array with .filter() per client.
+export function groupByClientId<T extends { client_id: string | null }>(
+  rows: T[],
+): Map<string, T[]> {
+  const m = new Map<string, T[]>();
+  for (const row of rows) {
+    if (row.client_id == null) continue;
+    const list = m.get(row.client_id) ?? [];
+    list.push(row);
+    m.set(row.client_id, list);
+  }
+  return m;
 }
 
 function round2(n: number): number {

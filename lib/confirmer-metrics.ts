@@ -31,7 +31,7 @@ export async function computeConfirmerStats(
     admin.from('users').select('id, email').eq('role', 'confirmer'),
     admin
       .from('appointment_events')
-      .select('*')
+      .select('actor_id, event_type, appointment_id, created_at, inbound_outcome, cancellation_reason')
       .gte('created_at', since),
     admin
       .from('appointments')
