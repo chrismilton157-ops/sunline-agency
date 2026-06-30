@@ -195,7 +195,10 @@ export function SOPEditor({ id, sopKey, title, content: initialContent, defaultC
               <SOPPdfButton title={title} content={savedContent} sopKey={sopKey} />
               <button
                 onClick={() => setMode('edit')}
-                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors"
+                className="px-4 py-2 border text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+                style={{ backgroundColor: '#E07B39', borderColor: '#E07B39', color: '#ffffff' }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')}
+                onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
               >
                 Edit
               </button>
@@ -217,7 +220,8 @@ export function SOPEditor({ id, sopKey, title, content: initialContent, defaultC
               <button
                 onClick={handleSave}
                 disabled={isPending || !isDirty}
-                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white text-sm font-medium rounded-lg transition-colors"
+                className="px-4 py-2 border text-sm font-medium rounded-lg transition-colors flex items-center gap-2 disabled:opacity-40"
+                style={{ backgroundColor: '#E07B39', borderColor: '#E07B39', color: '#ffffff' }}
               >
                 {isPending ? 'Saving…' : 'Save'}
               </button>
