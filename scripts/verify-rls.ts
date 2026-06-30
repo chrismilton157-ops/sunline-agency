@@ -867,6 +867,31 @@ async function main() {
     console.log('Demo client view: skipped (set DEMO_CLIENT_EMAIL + DEMO_CLIENT_PASSWORD to run).');
   }
 
+  // -----------------------------------------------------------------------
+  // SOP documents — owner-only
+  // -----------------------------------------------------------------------
+  console.log('SOP documents (owner-only):');
+  {
+    const { data: ownerSops } = await ownerClient.from('sop_documents').select('id, key');
+    check('owner can read sop_documents', (ownerSops?.length ?? 0) >= 4, ownerSops);
+
+    const { data: ownerEdit, error: ownerEditErr } = await ownerClient
+      .from('sop_documents')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('key', 'setter')
+      .select('id');
+    check('owner can update sop_documents', !ownerEditErr && (ownerEdit?.length ?? 0) > 0, ownerEditErr);
+
+    const { data: clientSops } = await clientPortal.from('sop_documents').select('id');
+    check('client cannot read sop_documents', (clientSops?.length ?? 0) === 0, clientSops);
+
+    const { data: setterSops } = await setterPortal.from('sop_documents').select('id');
+    check('setter cannot read sop_documents', (setterSops?.length ?? 0) === 0, setterSops);
+
+    const { data: confirmerSops } = await confirmerPortal.from('sop_documents').select('id');
+    check('confirmer cannot read sop_documents', (confirmerSops?.length ?? 0) === 0, confirmerSops);
+  }
+
   if (failed > 0) {
     console.log(`\n${failed} check(s) failed`);
     process.exit(1);

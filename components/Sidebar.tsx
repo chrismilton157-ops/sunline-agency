@@ -22,6 +22,7 @@ const OWNER_ITEMS = [
   { href: '/enquiries',     label: 'Enquiries' },
   { href: '/data-requests', label: 'Data requests' },
   { href: '/audit',         label: 'Audit log' },
+  { href: '/sops',          label: 'SOPs & Playbooks' },
 ];
 
 const SETTER_ITEMS = [
