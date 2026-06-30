@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { MetricCard } from '@/components/MetricCard';
 import { HealthBadge } from '@/components/HealthBadge';
+import { EmptyState } from '@/components/EmptyState';
 import { SatVsSoldChart } from '@/components/SatVsSoldChart';
 import { loadAll, groupByClientId } from '@/lib/data';
 import {
@@ -124,7 +125,7 @@ export default async function OverviewPage() {
         </section>
       )}
 
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 stagger-children">
         <MetricCard
           label="Active clients"
           value={fmtInt(pf.activeClients)}
@@ -228,7 +229,7 @@ export default async function OverviewPage() {
               return (
                 <tr
                   key={m.client.id}
-                  className="border-b last:border-b-0 border-hairline hover:bg-hairline/30"
+                  className="border-b last:border-b-0 border-hairline table-row-hover"
                 >
                   <td className="px-5 py-3">
                     <Link

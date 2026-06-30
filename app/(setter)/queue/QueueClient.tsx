@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import type { LeadQueue, CallDispositionType } from '@/lib/types';
 import { claimLead, releaseLead, submitDisposition, submitWrapUp } from './actions';
 import { WrapUpWizard } from './WrapUpWizard';
+import { EmptyState } from '@/components/EmptyState';
 
 // No-contact outcomes: one tap → submit → auto-advance to next lead
 const NO_CONTACT: ReadonlySet<CallDispositionType> = new Set([
@@ -53,6 +54,7 @@ export function QueueClient({ leads, userId }: Props) {
   const [isPending, startTransition] = useTransition();
   const [disposition, setDisposition] = useState<CallDispositionType | ''>('');
   const [showWrapUp, setShowWrapUp] = useState(false);
+  const [bookedSuccess, setBookedSuccess] = useState(false);
   const [activeLead, setActiveLead] = useState<LeadQueue | null>(
     () => leads.find((l) => l.queue_claimed_by === userId) ?? null,
   );
@@ -128,6 +130,8 @@ export function QueueClient({ leads, userId }: Props) {
       await submitWrapUp(fd);
       setShowWrapUp(false);
       setDisposition('');
+      setBookedSuccess(true);
+      setTimeout(() => setBookedSuccess(false), 2200);
     });
   }
 
@@ -141,8 +145,12 @@ export function QueueClient({ leads, userId }: Props) {
           {queueLeads.length} lead{queueLeads.length !== 1 ? 's' : ''} to call
         </p>
         {queueLeads.length === 0 && (
-          <div className="card px-4 py-8 text-center text-muted text-sm">
-            Queue empty — great work!
+          <div className="card overflow-hidden">
+            <EmptyState
+              preset="queue"
+              heading="Queue is clear — great work!"
+              body="All leads have been called. New leads will appear here as they come in."
+            />
           </div>
         )}
         {queueLeads.map((lead, idx) => {
@@ -203,15 +211,27 @@ export function QueueClient({ leads, userId }: Props) {
       </section>
 
       {/* ── Active call card ─────────────────────────── */}
-      <section className="flex-1 min-w-0">
+      <section className="flex-1 min-w-0 relative">
+        {/* Booked success flash */}
+        {bookedSuccess && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center
+                          bg-good/10 border-2 border-good/40 rounded-xl pointer-events-none
+                          animate-fade-in">
+            <svg className="w-14 h-14 text-good animate-check-pop" fill="none" viewBox="0 0 56 56" stroke="currentColor" strokeWidth={2.5}>
+              <circle cx="28" cy="28" r="26" className="opacity-20" fill="currentColor" stroke="none"/>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16 28l8 8 16-16"/>
+            </svg>
+            <div className="mt-3 text-good font-semibold text-lg">Booked!</div>
+            <div className="text-good/60 text-sm mt-1">Appointment added to the diary</div>
+          </div>
+        )}
         {!activeLead ? (
-          <div className="card px-6 py-12 text-center">
-            <p className="text-muted text-sm">
-              Claim a lead from the queue to start calling.
-            </p>
-            <p className="text-muted text-xs mt-2">
-              The newest lead is always at the top.
-            </p>
+          <div className="card overflow-hidden">
+            <EmptyState
+              preset="leads"
+              heading="No active call"
+              body="Claim a lead from the queue on the left to start calling. Newest leads are at the top."
+            />
           </div>
         ) : (
           <div className="card px-6 py-5 space-y-5">

@@ -10,7 +10,6 @@ const NOW = new Date('2025-06-01T12:00:00Z');
 
 function makeClient(overrides: Partial<Client> & { id: string }): Client {
   return {
-    id: overrides.id,
     company: overrides.company ?? 'Test Solar',
     contact: null,
     region: null,

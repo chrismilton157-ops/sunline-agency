@@ -38,7 +38,7 @@ export default async function PortalResultsPage() {
   return (
     <div className="space-y-8">
       {/* HERO */}
-      <section className="card p-6 md:p-8">
+      <section className="card p-6 md:p-8 animate-fade-up">
         <div className="text-muted text-xs uppercase tracking-wide">
           Lifetime sales with us
         </div>
@@ -89,7 +89,7 @@ export default async function PortalResultsPage() {
       </section>
 
       {/* METRIC CARDS */}
-      <section className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+      <section className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 stagger-children">
         <MetricCard label="Appointments sat" value={fmtInt(m.sits)} />
         <MetricCard label="Sales closed" value={fmtInt(m.sold)} tone="good" />
         <MetricCard label="Average job value" value={fmtMoney(m.avgJobValue)} />

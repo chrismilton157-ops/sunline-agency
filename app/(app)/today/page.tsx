@@ -268,7 +268,9 @@ function CommandCard({
   return (
     <Link
       href={href}
-      className={`card p-5 border-l-4 ${accentClass} flex flex-col gap-2 hover:shadow-sm transition-shadow group`}
+      className={`card p-5 border-l-4 ${accentClass} flex flex-col gap-2
+                  hover:shadow-[0_4px_16px_0_rgba(0,0,0,0.09)] hover:-translate-y-px
+                  transition-all duration-150 group`}
     >
       {count != null && (
         <div className={`num text-4xl font-semibold tracking-tight ${countClass}`}>
@@ -276,7 +278,7 @@ function CommandCard({
         </div>
       )}
       <div>
-        <div className="font-semibold text-ink group-hover:text-amber transition-colors">
+        <div className="font-semibold text-ink group-hover:text-amber transition-colors duration-150">
           {label}
         </div>
         <div className="text-xs text-muted mt-0.5">{sublabel}</div>

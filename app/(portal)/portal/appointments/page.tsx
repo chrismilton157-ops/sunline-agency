@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { PortalAppointmentRow } from '@/components/PortalAppointmentRow';
+import { EmptyState } from '@/components/EmptyState';
 import { loadPortalForClient, requireSession } from '@/lib/data';
 import { fmtDateTime } from '@/lib/format';
 
@@ -60,9 +61,11 @@ export default async function PortalAppointmentsPage() {
           </p>
         </header>
         {upcoming.length === 0 ? (
-          <div className="px-5 py-8 text-muted text-sm text-center">
-            No upcoming appointments yet.
-          </div>
+          <EmptyState
+            preset="appointments"
+            heading="No upcoming appointments"
+            body="New sits will appear here as soon as they're booked."
+          />
         ) : (
           <ul className="divide-y divide-hairline">
             {upcoming.map((a) => {
@@ -117,8 +120,12 @@ export default async function PortalAppointmentsPage() {
             ))}
             {recent.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-5 py-8 text-center text-muted">
-                  No appointments yet.
+                <td colSpan={4}>
+                  <EmptyState
+                    preset="appointments"
+                    heading="No appointment results yet"
+                    body="Past appointment outcomes will appear here once your first sit is completed."
+                  />
                 </td>
               </tr>
             )}

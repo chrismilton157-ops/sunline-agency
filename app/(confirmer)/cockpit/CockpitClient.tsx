@@ -24,6 +24,7 @@ import {
   logOutcome,
   searchAppointments,
 } from './actions';
+import { EmptyState } from '@/components/EmptyState';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -1220,8 +1221,12 @@ function MyDayTab({
 
   if (nonEmpty.length === 0) {
     return (
-      <div className="rounded-2xl border border-hairline bg-white p-10 text-center text-muted">
-        Queue is clear — nothing needs doing right now.
+      <div className="card overflow-hidden">
+        <EmptyState
+          preset="alerts"
+          heading="Queue is clear"
+          body="Nothing needs doing right now — all upcoming appointments are confirmed or snoozed."
+        />
       </div>
     );
   }
@@ -1407,7 +1412,11 @@ function LookupTab({ currentUserId, smsTemplates }: { currentUserId: string; sms
       {results !== null && (
         <div className="space-y-3">
           {results.length === 0 ? (
-            <p className="text-sm text-muted text-center py-6">No appointments found.</p>
+            <EmptyState
+              preset="appointments"
+              heading="No appointments found"
+              body="Try different search terms."
+            />
           ) : (
             results.map((a) => (
               <AppointmentCard key={a.id} appt={a} currentUserId={currentUserId} smsTemplates={smsTemplates} compact />

@@ -5,6 +5,7 @@ import { SETTER_BENCHMARKS } from '@/lib/setter-metrics';
 import type { SetterOutputStats } from '@/lib/setter-metrics';
 import { Avatar } from '@/components/Avatar';
 import { ProfilePhotoUpload } from './ProfilePhotoUpload';
+import { EmptyState } from '@/components/EmptyState';
 
 type Range = 'today' | 'week' | 'month';
 
@@ -42,10 +43,10 @@ export function LeaderboardClient({ byRange, myId, myInitials, myAvatarUrl }: Pr
           <button
             key={r}
             onClick={() => setRange(r)}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150
               ${range === r
-                ? 'bg-amber text-white'
-                : 'bg-hairline/30 text-ink hover:bg-hairline/60'
+                ? 'bg-amber text-white shadow-[0_2px_8px_0_rgba(224,123,57,0.25)]'
+                : 'bg-hairline/30 text-ink hover:bg-hairline/60 active:scale-[0.97]'
               }`}
           >
             {r === 'today' ? 'Today' : r === 'week' ? 'This week' : 'This month'}
@@ -143,7 +144,7 @@ export function LeaderboardClient({ byRange, myId, myInitials, myAvatarUrl }: Pr
                   const isMe = s.setterId === myId;
                   return (
                     <tr key={s.setterId}
-                      className={`${isMe ? 'bg-amber/5 font-medium' : 'hover:bg-hairline/20'}`}>
+                      className={`transition-colors duration-100 ${isMe ? 'bg-amber/5 font-medium' : 'hover:bg-amber/[0.03]'}`}>
                       <td className="px-4 py-3 text-muted num">{i + 1}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
@@ -171,9 +172,12 @@ export function LeaderboardClient({ byRange, myId, myInitials, myAvatarUrl }: Pr
       )}
 
       {ranked.length === 0 && (
-        <div className="text-center py-16 text-muted">
-          <div className="text-4xl mb-3">📋</div>
-          <div className="text-sm">No activity in this period yet — start dialling!</div>
+        <div className="card overflow-hidden">
+          <EmptyState
+            preset="leaderboard"
+            heading="No activity in this period"
+            body="Start dialling — your stats and ranking will appear here once calls are logged."
+          />
         </div>
       )}
 

@@ -150,7 +150,7 @@ function PainSection() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {PAINS.map((p) => (
-            <div key={p.title} className="card p-6">
+            <div key={p.title} className="card p-6 card-lift">
               <div className="text-3xl mb-4">{p.icon}</div>
               <h3 className="font-bold text-ink mb-2">{p.title}</h3>
               <p className="text-muted text-sm leading-relaxed">{p.body}</p>
@@ -278,7 +278,7 @@ function HowItWorksSection() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {STEPS.map((s) => (
-            <div key={s.n} className="card p-6 relative">
+            <div key={s.n} className="card p-6 relative card-lift">
               <div className="w-8 h-8 rounded-full bg-amber/15 text-amber font-bold text-sm flex items-center justify-center mb-4">
                 {s.n}
               </div>
