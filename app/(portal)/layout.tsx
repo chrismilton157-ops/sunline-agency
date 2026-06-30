@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { PortalSidebar } from '@/components/PortalSidebar';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { loadPortalForClient, requireSession } from '@/lib/data';
 import { getServerAdmin } from '@/lib/supabase/admin';
 
@@ -29,11 +30,14 @@ export default async function PortalLayout({
   const { client } = await loadPortalForClient(clientId);
 
   return (
-    <div className="md:flex">
-      <PortalSidebar company={client.company} />
-      <main id="main-content" className="flex-1 min-h-screen px-4 py-6 md:px-10 md:py-8 max-w-[1100px] mx-auto w-full">
-        {children}
-      </main>
-    </div>
+    <>
+      <OfflineBanner />
+      <div className="md:flex">
+        <PortalSidebar company={client.company} />
+        <main id="main-content" className="flex-1 min-h-screen px-4 py-6 md:px-10 md:py-8 max-w-[1100px] mx-auto w-full">
+          {children}
+        </main>
+      </div>
+    </>
   );
 }

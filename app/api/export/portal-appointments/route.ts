@@ -5,6 +5,7 @@ import { buildCsv, csvDateTime, csvDate, csvResponse } from '@/lib/csv';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
+  try {
   const { user, role, clientId } = await requireSession();
 
   if (!user) {
@@ -50,4 +51,7 @@ export async function GET() {
     `my-appointments-${today}.csv`,
     buildCsv(headers, rows),
   );
+  } catch {
+    return NextResponse.json({ error: 'Export failed — please try again.' }, { status: 500 });
+  }
 }
