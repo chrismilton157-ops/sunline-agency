@@ -295,10 +295,10 @@ export function ApplyForm({
 
 // ---------- step building blocks ----------
 
-function Heading({ title, hint }: { title: string; hint?: string }) {
+function Heading({ title, hint, id }: { title: string; hint?: string; id?: string }) {
   return (
     <div>
-      <h2 className="text-xl md:text-2xl font-semibold tracking-tight leading-snug">
+      <h2 id={id} className="text-xl md:text-2xl font-semibold tracking-tight leading-snug">
         {title}
       </h2>
       {hint && <p className="text-muted text-sm mt-1.5">{hint}</p>}
@@ -321,11 +321,13 @@ function TextStep(props: {
   canAdvance: boolean;
   error?: string | null;
 }) {
+  const headingId = `step-label-${props.label.replace(/\s+/g, '-').toLowerCase().slice(0, 30)}`;
   return (
     <div className="flex flex-col gap-4 flex-1">
-      <Heading title={props.label} hint={props.hint} />
+      <Heading title={props.label} hint={props.hint} id={headingId} />
       <input
         data-autofocus
+        aria-labelledby={headingId}
         type={props.type ?? 'text'}
         inputMode={props.inputMode}
         autoComplete={props.autoComplete}
@@ -371,13 +373,15 @@ function YesNoStep({
   value: YN;
   onPick: (v: 'yes' | 'no') => void;
 }) {
+  const headingId = `yn-label-${label.replace(/\s+/g, '-').toLowerCase().slice(0, 30)}`;
   return (
     <div className="flex flex-col gap-5 flex-1">
-      <Heading title={label} hint={hint} />
-      <div className="grid grid-cols-2 gap-3 mt-auto">
+      <Heading title={label} hint={hint} id={headingId} />
+      <div role="group" aria-labelledby={headingId} className="grid grid-cols-2 gap-3 mt-auto">
         <button
           data-autofocus
           type="button"
+          aria-pressed={value === 'yes'}
           onClick={() => onPick('yes')}
           className={`rounded-md border text-base font-medium py-5
             ${
@@ -390,6 +394,7 @@ function YesNoStep({
         </button>
         <button
           type="button"
+          aria-pressed={value === 'no'}
           onClick={() => onPick('no')}
           className={`rounded-md border text-base font-medium py-5
             ${

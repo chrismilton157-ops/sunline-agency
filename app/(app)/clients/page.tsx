@@ -58,12 +58,12 @@ export default async function ClientsPage() {
         <table className="w-full text-sm">
           <thead className="text-muted text-xs uppercase bg-bg/60">
             <tr className="border-b border-hairline">
-              <th className="text-left font-medium px-5 py-3">Client</th>
-              <th className="text-right font-medium px-3 py-3">Sits</th>
-              <th className="text-right font-medium px-3 py-3">ROI</th>
-              <th className="text-right font-medium px-3 py-3">Margin / sit</th>
-              <th className="text-right font-medium px-3 py-3">Close rate</th>
-              <th className="text-right font-medium px-5 py-3">Health</th>
+              <th scope="col" className="text-left font-medium px-5 py-3">Client</th>
+              <th scope="col" className="text-right font-medium px-3 py-3">Sits</th>
+              <th scope="col" className="text-right font-medium px-3 py-3">ROI</th>
+              <th scope="col" className="text-right font-medium px-3 py-3">Margin / sit</th>
+              <th scope="col" className="text-right font-medium px-3 py-3">Close rate</th>
+              <th scope="col" className="text-right font-medium px-5 py-3">Health</th>
             </tr>
           </thead>
           <tbody>

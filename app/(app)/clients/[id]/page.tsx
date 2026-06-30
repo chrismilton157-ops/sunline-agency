@@ -268,10 +268,10 @@ export default async function ClientDetailPage({
         <table className="w-full text-sm">
           <thead className="text-muted text-xs uppercase">
             <tr className="border-b border-hairline">
-              <th className="text-left font-medium px-5 py-2">Lead</th>
-              <th className="text-left font-medium px-3 py-2">When</th>
-              <th className="text-left font-medium px-3 py-2">Outcome</th>
-              <th className="text-left font-medium px-5 py-2">Quality</th>
+              <th scope="col" className="text-left font-medium px-5 py-2">Lead</th>
+              <th scope="col" className="text-left font-medium px-3 py-2">When</th>
+              <th scope="col" className="text-left font-medium px-3 py-2">Outcome</th>
+              <th scope="col" className="text-left font-medium px-5 py-2">Quality</th>
             </tr>
           </thead>
           <tbody>

@@ -151,12 +151,12 @@ export default async function BillingPage({
             <table className="w-full text-sm">
               <thead className="text-muted text-xs uppercase">
                 <tr className="border-b border-hairline">
-                  <th className="text-left font-medium px-5 py-2">Client</th>
-                  <th className="text-right font-medium px-3 py-2">Ad mgmt</th>
-                  <th className="text-right font-medium px-3 py-2">Appts</th>
-                  <th className="text-right font-medium px-3 py-2">Total</th>
-                  <th className="text-left font-medium px-3 py-2">Internal</th>
-                  <th className="text-right font-medium px-5 py-2">Actions</th>
+                  <th scope="col" className="text-left font-medium px-5 py-2">Client</th>
+                  <th scope="col" className="text-right font-medium px-3 py-2">Ad mgmt</th>
+                  <th scope="col" className="text-right font-medium px-3 py-2">Appts</th>
+                  <th scope="col" className="text-right font-medium px-3 py-2">Total</th>
+                  <th scope="col" className="text-left font-medium px-3 py-2">Internal</th>
+                  <th scope="col" className="text-right font-medium px-5 py-2">Actions</th>
                 </tr>
               </thead>
               <tbody>

@@ -1,5 +1,5 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { TourStep } from './tourContent';
 
 interface Props {
@@ -13,6 +13,8 @@ interface Props {
 export function TourModal({ steps, current, onNext, onSkip, onBack }: Props) {
   const step = steps[current];
   const isLast = current === steps.length - 1;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const titleId = `tour-title-${current}`;
 
   // Close on Escape
   useEffect(() => {
@@ -29,6 +31,28 @@ export function TourModal({ steps, current, onNext, onSkip, onBack }: Props) {
     return () => { document.body.style.overflow = ''; };
   }, []);
 
+  // Focus trap
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const focusable = el.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    );
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    first?.focus();
+    function trap(e: KeyboardEvent) {
+      if (e.key !== 'Tab') return;
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last?.focus(); }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first?.focus(); }
+      }
+    }
+    el.addEventListener('keydown', trap);
+    return () => el.removeEventListener('keydown', trap);
+  }, [current]);
+
   if (!step) return null;
 
   return (
@@ -37,9 +61,10 @@ export function TourModal({ steps, current, onNext, onSkip, onBack }: Props) {
                  bg-ink/60 backdrop-blur-sm p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="Getting started tour"
+      aria-labelledby={titleId}
     >
       <div
+        ref={containerRef}
         className="w-full max-w-md bg-card rounded-2xl shadow-2xl overflow-hidden
                    motion-safe:animate-[slideUp_0.25s_ease-out]"
         style={{
@@ -73,7 +98,7 @@ export function TourModal({ steps, current, onNext, onSkip, onBack }: Props) {
           <div className="text-4xl mb-3 select-none" aria-hidden="true">
             {step.emoji}
           </div>
-          <h2 className="text-xl font-semibold tracking-tight text-ink mb-2">
+          <h2 id={titleId} className="text-xl font-semibold tracking-tight text-ink mb-2">
             {step.title}
           </h2>
           <p className="text-muted text-sm leading-relaxed">

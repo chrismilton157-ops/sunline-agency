@@ -14,7 +14,7 @@ export default function ApplyPage({
   const error = searchParams.error ?? '';
 
   return (
-    <main className="min-h-screen px-4 py-6 md:py-12 flex justify-center">
+    <main id="main-content" className="min-h-screen px-4 py-6 md:py-12 flex justify-center">
       <div className="w-full max-w-md">
         <header className="mb-5 md:mb-7">
           <div className="text-amber font-semibold text-base tracking-tight">

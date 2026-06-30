@@ -66,7 +66,7 @@ export function Sidebar({ email, role }: { email: string; role?: string }) {
         </div>
       </div>
 
-      <nav className="flex md:flex-col gap-0.5 flex-1 overflow-x-auto md:overflow-x-visible">
+      <nav aria-label="Main navigation" className="flex md:flex-col gap-0.5 flex-1 overflow-x-auto md:overflow-x-visible">
         {items.map((it) => {
           const active =
             path === it.href || path.startsWith(it.href + '/');
@@ -74,6 +74,7 @@ export function Sidebar({ email, role }: { email: string; role?: string }) {
             <Link
               key={it.href}
               href={it.href}
+              aria-current={active ? 'page' : undefined}
               className={`px-3 py-2.5 md:py-2 rounded-lg text-sm font-medium whitespace-nowrap
                 min-h-[44px] flex items-center touch-manipulation
                 transition-all duration-150 ease-out

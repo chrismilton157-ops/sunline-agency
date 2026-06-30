@@ -157,11 +157,11 @@ export default async function AuditLogPage({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-stone-200 text-xs uppercase tracking-wide text-muted">
-                <th className="px-4 py-2.5 text-left font-medium w-36">When</th>
-                <th className="px-4 py-2.5 text-left font-medium w-24">Actor</th>
-                <th className="px-4 py-2.5 text-left font-medium w-24">Entity</th>
-                <th className="px-4 py-2.5 text-left font-medium">Description</th>
-                <th className="px-4 py-2.5 text-left font-medium hidden lg:table-cell w-40">Action</th>
+                <th scope="col" className="px-4 py-2.5 text-left font-medium w-36">When</th>
+                <th scope="col" className="px-4 py-2.5 text-left font-medium w-24">Actor</th>
+                <th scope="col" className="px-4 py-2.5 text-left font-medium w-24">Entity</th>
+                <th scope="col" className="px-4 py-2.5 text-left font-medium">Description</th>
+                <th scope="col" className="px-4 py-2.5 text-left font-medium hidden lg:table-cell w-40">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100">

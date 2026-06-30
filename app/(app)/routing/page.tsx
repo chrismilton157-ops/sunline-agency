@@ -110,11 +110,11 @@ export default async function RoutingPage() {
         <table className="w-full text-sm">
           <thead className="text-muted text-xs uppercase">
             <tr className="border-b border-hairline">
-              <th className="text-left font-medium px-5 py-2">Client</th>
-              <th className="text-left font-medium px-3 py-2">Coverage</th>
-              <th className="text-right font-medium px-3 py-2">Priority</th>
-              <th className="text-right font-medium px-3 py-2">This week</th>
-              <th className="text-left font-medium px-5 py-2 w-56">Promise filled</th>
+              <th scope="col" className="text-left font-medium px-5 py-2">Client</th>
+              <th scope="col" className="text-left font-medium px-3 py-2">Coverage</th>
+              <th scope="col" className="text-right font-medium px-3 py-2">Priority</th>
+              <th scope="col" className="text-right font-medium px-3 py-2">This week</th>
+              <th scope="col" className="text-left font-medium px-5 py-2 w-56">Promise filled</th>
             </tr>
           </thead>
           <tbody>
@@ -204,14 +204,14 @@ export default async function RoutingPage() {
         <table className="w-full text-sm">
           <thead className="text-muted text-xs uppercase">
             <tr className="border-b border-hairline">
-              <th className="text-left font-medium px-5 py-2">Client</th>
-              <th className="text-right font-medium px-3 py-2">Appts</th>
-              <th className="text-right font-medium px-3 py-2">Sat</th>
-              <th className="text-right font-medium px-3 py-2">Sold</th>
-              <th className="text-right font-medium px-3 py-2">Show rate</th>
-              <th className="text-right font-medium px-3 py-2">Close rate</th>
-              <th className="text-right font-medium px-3 py-2">Blended close</th>
-              <th className="text-right font-medium px-5 py-2">Data</th>
+              <th scope="col" className="text-left font-medium px-5 py-2">Client</th>
+              <th scope="col" className="text-right font-medium px-3 py-2">Appts</th>
+              <th scope="col" className="text-right font-medium px-3 py-2">Sat</th>
+              <th scope="col" className="text-right font-medium px-3 py-2">Sold</th>
+              <th scope="col" className="text-right font-medium px-3 py-2">Show rate</th>
+              <th scope="col" className="text-right font-medium px-3 py-2">Close rate</th>
+              <th scope="col" className="text-right font-medium px-3 py-2">Blended close</th>
+              <th scope="col" className="text-right font-medium px-5 py-2">Data</th>
             </tr>
           </thead>
           <tbody>
@@ -268,12 +268,12 @@ export default async function RoutingPage() {
           <table className="w-full text-sm">
             <thead className="text-muted text-xs uppercase">
               <tr className="border-b border-hairline">
-                <th className="text-left font-medium px-5 py-2">Area</th>
-                <th className="text-right font-medium px-3 py-2">Leads</th>
-                <th className="text-right font-medium px-3 py-2">Appts</th>
-                <th className="text-right font-medium px-3 py-2">Lead→appt</th>
-                <th className="text-right font-medium px-3 py-2">Blended</th>
-                <th className="text-right font-medium px-5 py-2">Data</th>
+                <th scope="col" className="text-left font-medium px-5 py-2">Area</th>
+                <th scope="col" className="text-right font-medium px-3 py-2">Leads</th>
+                <th scope="col" className="text-right font-medium px-3 py-2">Appts</th>
+                <th scope="col" className="text-right font-medium px-3 py-2">Lead→appt</th>
+                <th scope="col" className="text-right font-medium px-3 py-2">Blended</th>
+                <th scope="col" className="text-right font-medium px-5 py-2">Data</th>
               </tr>
             </thead>
             <tbody>
@@ -309,11 +309,11 @@ export default async function RoutingPage() {
         <table className="w-full text-sm">
           <thead className="text-muted text-xs uppercase">
             <tr className="border-b border-hairline">
-              <th className="text-left font-medium px-5 py-2">Prefix</th>
-              <th className="text-left font-medium px-3 py-2">Covered by</th>
-              <th className="text-right font-medium px-3 py-2">Typical / wk</th>
-              <th className="text-right font-medium px-3 py-2">Promised</th>
-              <th className="text-right font-medium px-5 py-2">Status</th>
+              <th scope="col" className="text-left font-medium px-5 py-2">Prefix</th>
+              <th scope="col" className="text-left font-medium px-3 py-2">Covered by</th>
+              <th scope="col" className="text-right font-medium px-3 py-2">Typical / wk</th>
+              <th scope="col" className="text-right font-medium px-3 py-2">Promised</th>
+              <th scope="col" className="text-right font-medium px-5 py-2">Status</th>
             </tr>
           </thead>
           <tbody>

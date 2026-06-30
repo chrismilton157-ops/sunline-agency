@@ -2,6 +2,33 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Skip-to-content link (a11y) */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+.skip-link:focus {
+  position: fixed;
+  left: 1rem;
+  top: 1rem;
+  z-index: 9999;
+  width: auto;
+  height: auto;
+  padding: 0.5rem 1rem;
+  background: #E07B39;
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: 6px;
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+  text-decoration: none;
+}
+
 @layer base {
   html, body {
     background: #F6F5F1;
