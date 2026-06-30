@@ -57,7 +57,7 @@ export async function saveSettings(formData: FormData) {
       updated_at:                     new Date().toISOString(),
     });
 
-  if (error) redirect(`/settings?error=${encodeURIComponent(error.message)}`);
+  if (error) redirect('/settings?error=Could+not+save+settings+%E2%80%94+please+try+again.');
 
   await writeAudit({
     actor_id: user?.id ?? null,
@@ -115,7 +115,7 @@ export async function resetSettings() {
       updated_at:                    new Date().toISOString(),
     });
 
-  if (error) redirect(`/settings?error=${encodeURIComponent(error.message)}`);
+  if (error) redirect('/settings?error=Could+not+reset+settings+%E2%80%94+please+try+again.');
 
   await writeAudit({
     actor_id: user?.id ?? null,

@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { Sidebar } from '@/components/Sidebar';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { requireOwner } from '@/lib/data';
 
 export default async function ConfirmerLayout({
@@ -16,11 +17,14 @@ export default async function ConfirmerLayout({
   if (role !== 'confirmer') redirect('/login?error=Confirmer+access+only');
 
   return (
-    <div className="md:flex">
-      <Sidebar email={user.email ?? ''} role="confirmer" />
-      <main id="main-content" className="flex-1 min-h-screen px-4 py-6 md:px-10 md:py-8 max-w-[900px] mx-auto w-full">
-        {children}
-      </main>
-    </div>
+    <>
+      <OfflineBanner />
+      <div className="md:flex">
+        <Sidebar email={user.email ?? ''} role="confirmer" />
+        <main id="main-content" className="flex-1 min-h-screen px-4 py-6 md:px-10 md:py-8 max-w-[900px] mx-auto w-full">
+          {children}
+        </main>
+      </div>
+    </>
   );
 }

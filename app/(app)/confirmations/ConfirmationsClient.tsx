@@ -75,6 +75,12 @@ function AppointmentCard({ appt }: { appt: ConfirmationAppointment }) {
   const [customMethod, setCustomMethod] = useState('');
   const [notes, setNotes] = useState('');
   const [isPending, startTransition] = useTransition();
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  function showError(msg: string) {
+    setActionError(msg);
+    setTimeout(() => setActionError(null), 5000);
+  }
 
   const level = urgency(appt.appt_date, appt.confirmed_at);
   const isConfirmed = level === 'confirmed';
@@ -87,25 +93,38 @@ function AppointmentCard({ appt }: { appt: ConfirmationAppointment }) {
 
   function handleMarkConfirmed() {
     startTransition(async () => {
-      await markConfirmed(appt.id);
+      try {
+        await markConfirmed(appt.id);
+      } catch {
+        showError('Could not confirm this appointment — please try again.');
+      }
     });
   }
 
   function handleLogAttempt(method: string) {
     startTransition(async () => {
-      const fd = new FormData();
-      fd.set('appointment_id', appt.id);
-      fd.set('method', method);
-      if (notes) fd.set('notes', notes);
-      await logAttempt(fd);
-      setNotes('');
-      setCustomMethod('');
-      setShowAttemptForm(false);
+      try {
+        const fd = new FormData();
+        fd.set('appointment_id', appt.id);
+        fd.set('method', method);
+        if (notes) fd.set('notes', notes);
+        await logAttempt(fd);
+        setNotes('');
+        setCustomMethod('');
+        setShowAttemptForm(false);
+      } catch {
+        showError('Could not log this attempt — please try again.');
+      }
     });
   }
 
   return (
     <div className={`rounded-xl border p-4 space-y-3 transition-all ${cardBorder}`}>
+      {actionError && (
+        <div role="alert" aria-live="assertive" className="rounded-lg bg-bad/10 border border-bad/30 text-bad text-xs font-medium px-3 py-2 flex items-center gap-2">
+          <span aria-hidden="true">⚠</span> {actionError}
+        </div>
+      )}
       {/* Header row */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0">

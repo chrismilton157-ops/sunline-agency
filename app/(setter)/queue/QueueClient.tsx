@@ -56,6 +56,7 @@ export function QueueClient({ leads, userId }: Props) {
   const [disposition, setDisposition] = useState<CallDispositionType | ''>('');
   const [showWrapUp, setShowWrapUp] = useState(false);
   const [bookedSuccess, setBookedSuccess] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [activeLead, setActiveLead] = useState<LeadQueue | null>(
     () => leads.find((l) => l.queue_claimed_by === userId) ?? null,
   );
@@ -86,9 +87,18 @@ export function QueueClient({ leads, userId }: Props) {
   const isLocked = (l: LeadQueue) =>
     l.queue_claimed_by !== null && !isMine(l) && !isStale(l);
 
+  function showError(msg: string) {
+    setActionError(msg);
+    setTimeout(() => setActionError(null), 5000);
+  }
+
   function handleClaim(lead: LeadQueue) {
     startTransition(async () => {
-      await claimLead(lead.id);
+      try {
+        await claimLead(lead.id);
+      } catch {
+        showError('Could not claim this lead — please try again.');
+      }
     });
   }
 
@@ -97,7 +107,11 @@ export function QueueClient({ leads, userId }: Props) {
     setDisposition('');
     setShowWrapUp(false);
     startTransition(async () => {
-      await releaseLead(activeLead.id);
+      try {
+        await releaseLead(activeLead.id);
+      } catch {
+        showError('Could not release lead — please try again.');
+      }
     });
   }
 
@@ -110,29 +124,37 @@ export function QueueClient({ leads, userId }: Props) {
     const isNoContact = NO_CONTACT.has(disposition as CallDispositionType);
     const currentLeadId = activeLead?.id;
     startTransition(async () => {
-      await submitDisposition(fd);
-      setDisposition('');
-      if (isNoContact) {
-        // Auto-advance: claim the next unclaimed lead in the queue
-        const next = leads.find(
-          (l) =>
-            l.id !== currentLeadId &&
-            l.queue_claimed_by === null &&
-            l.status !== 'booked' &&
-            l.status !== 'disqualified',
-        );
-        if (next) await claimLead(next.id);
+      try {
+        await submitDisposition(fd);
+        setDisposition('');
+        if (isNoContact) {
+          // Auto-advance: claim the next unclaimed lead in the queue
+          const next = leads.find(
+            (l) =>
+              l.id !== currentLeadId &&
+              l.queue_claimed_by === null &&
+              l.status !== 'booked' &&
+              l.status !== 'disqualified',
+          );
+          if (next) await claimLead(next.id);
+        }
+      } catch {
+        showError('Could not save this outcome — please try again.');
       }
     });
   }
 
   function handleWrapUpComplete(fd: FormData) {
     startTransition(async () => {
-      await submitWrapUp(fd);
-      setShowWrapUp(false);
-      setDisposition('');
-      setBookedSuccess(true);
-      setTimeout(() => setBookedSuccess(false), 2200);
+      try {
+        await submitWrapUp(fd);
+        setShowWrapUp(false);
+        setDisposition('');
+        setBookedSuccess(true);
+        setTimeout(() => setBookedSuccess(false), 2200);
+      } catch {
+        showError('Could not save the booking — please try again.');
+      }
     });
   }
 
@@ -140,6 +162,17 @@ export function QueueClient({ leads, userId }: Props) {
 
   return (
     <div className="flex flex-col md:flex-row gap-6">
+      {/* ── Action error toast ──────────────────────────── */}
+      {actionError && (
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 max-w-sm w-[calc(100vw-2rem)] bg-bad text-white text-sm font-medium px-4 py-3 rounded-xl shadow-lg flex items-center gap-2"
+        >
+          <span aria-hidden="true" className="shrink-0">⚠</span>
+          {actionError}
+        </div>
+      )}
       {/* ── Queue list ─────────────────────────────────── */}
       <section className="md:w-72 shrink-0 space-y-2">
         <p className="text-xs text-muted uppercase tracking-wide font-medium px-1 flex items-center gap-1.5">

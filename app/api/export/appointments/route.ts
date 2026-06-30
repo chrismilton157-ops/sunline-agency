@@ -5,6 +5,7 @@ import { buildCsv, csvDate, csvDateTime, csvResponse } from '@/lib/csv';
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
+  try {
   const { role } = await requireOwner();
   if (role !== 'owner') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -64,4 +65,7 @@ export async function GET(req: NextRequest) {
     `sunline-appointments-${clientLabel}-${today}.csv`,
     buildCsv(headers, rows),
   );
+  } catch {
+    return NextResponse.json({ error: 'Export failed — please try again.' }, { status: 500 });
+  }
 }

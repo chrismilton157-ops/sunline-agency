@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { Sidebar } from '@/components/Sidebar';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { requireOwner } from '@/lib/data';
 
 export default async function SetterLayout({
@@ -15,11 +16,14 @@ export default async function SetterLayout({
   if (role !== 'owner' && role !== 'setter') redirect('/login');
 
   return (
-    <div className="md:flex">
-      <Sidebar email={user.email ?? ''} role={role ?? 'setter'} />
-      <main id="main-content" className="flex-1 min-h-screen px-4 py-6 md:px-10 md:py-8 max-w-[1300px] mx-auto w-full">
-        {children}
-      </main>
-    </div>
+    <>
+      <OfflineBanner />
+      <div className="md:flex">
+        <Sidebar email={user.email ?? ''} role={role ?? 'setter'} />
+        <main id="main-content" className="flex-1 min-h-screen px-4 py-6 md:px-10 md:py-8 max-w-[1300px] mx-auto w-full">
+          {children}
+        </main>
+      </div>
+    </>
   );
 }
