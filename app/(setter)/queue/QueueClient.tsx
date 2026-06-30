@@ -5,6 +5,7 @@ import type { LeadQueue, CallDispositionType } from '@/lib/types';
 import { claimLead, releaseLead, submitDisposition, submitWrapUp } from './actions';
 import { WrapUpWizard } from './WrapUpWizard';
 import { EmptyState } from '@/components/EmptyState';
+import { HelpTooltip } from '@/components/onboarding/HelpTooltip';
 
 // No-contact outcomes: one tap → submit → auto-advance to next lead
 const NO_CONTACT: ReadonlySet<CallDispositionType> = new Set([
@@ -141,8 +142,9 @@ export function QueueClient({ leads, userId }: Props) {
     <div className="flex flex-col md:flex-row gap-6">
       {/* ── Queue list ─────────────────────────────────── */}
       <section className="md:w-72 shrink-0 space-y-2">
-        <p className="text-xs text-muted uppercase tracking-wide font-medium px-1">
+        <p className="text-xs text-muted uppercase tracking-wide font-medium px-1 flex items-center gap-1.5">
           {queueLeads.length} lead{queueLeads.length !== 1 ? 's' : ''} to call
+          <HelpTooltip text="Newest leads are at the top. Call the top lead first — fresh leads book at much higher rates." side="right" />
         </p>
         {queueLeads.length === 0 && (
           <div className="card overflow-hidden">
@@ -382,8 +384,9 @@ export function QueueClient({ leads, userId }: Props) {
               ) : (
                 /* Normal outcome form for no-contact dispositions */
                 <form ref={formRef} onSubmit={handleDispositionSubmit} className="space-y-4">
-                  <div className="text-xs font-semibold text-ink mb-3 uppercase tracking-wide">
+                  <div className="text-xs font-semibold text-ink mb-3 uppercase tracking-wide flex items-center gap-1.5">
                     Call outcome
+                    <HelpTooltip text="Pick what happened. 'No answer', 'Callback', 'Not interested', 'Wrong number' move the lead on automatically. 'Disqualified' removes them from the queue. 'Booked' is the win — fill in appointment details next." />
                   </div>
                   <input type="hidden" name="lead_id" value={activeLead.id} />
 

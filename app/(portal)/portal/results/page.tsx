@@ -1,4 +1,6 @@
 import { redirect } from 'next/navigation';
+import { TourManager } from '@/components/onboarding/TourManager';
+import { HelpTooltip } from '@/components/onboarding/HelpTooltip';
 import { ComparisonBar } from '@/components/ComparisonBar';
 import { MetricCard } from '@/components/MetricCard';
 import { SatVsSoldChart } from '@/components/SatVsSoldChart';
@@ -37,6 +39,7 @@ export default async function PortalResultsPage() {
 
   return (
     <div className="space-y-8">
+      <TourManager role="client" userId={user.id} />
       {/* HERO */}
       <section className="card p-6 md:p-8 animate-fade-up">
         <div className="text-muted text-xs uppercase tracking-wide">
@@ -107,8 +110,8 @@ export default async function PortalResultsPage() {
               Your numbers vs. UK residential solar industry averages.
             </p>
           </div>
-          <ComparisonBar label="Sit rate" yours={m.sitRate} benchmark={INDUSTRY_SIT_RATE} />
-          <ComparisonBar label="Close rate" yours={m.closeRate} benchmark={INDUSTRY_CLOSE_RATE} />
+          <ComparisonBar label={<span className="flex items-center gap-1">Sit rate <HelpTooltip text="% of booked appointments where the homeowner was actually home. Industry average is around 70%." side="right" /></span>} yours={m.sitRate} benchmark={INDUSTRY_SIT_RATE} />
+          <ComparisonBar label={<span className="flex items-center gap-1">Close rate <HelpTooltip text="% of sits that resulted in a solar sale. Industry average is around 30%." side="right" /></span>} yours={m.closeRate} benchmark={INDUSTRY_CLOSE_RATE} />
         </div>
 
         <div className="card p-5">

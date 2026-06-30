@@ -3,6 +3,7 @@ import { getServerSupabase } from '@/lib/supabase/server';
 import { getServerAdmin } from '@/lib/supabase/admin';
 import type { LeadQueue, CallDisposition } from '@/lib/types';
 import { QueueClient } from './QueueClient';
+import { TourManager } from '@/components/onboarding/TourManager';
 
 import type { Metadata } from 'next';
 export const metadata: Metadata = { title: 'Call queue' };
@@ -109,6 +110,7 @@ export default async function QueuePage() {
       </header>
 
       <QueueClient leads={leads} userId={user.id} />
+      <TourManager role="setter" userId={user.id} />
     </div>
   );
 }
