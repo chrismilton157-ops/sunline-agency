@@ -8,23 +8,24 @@
     color: #15181D;
     font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
-    /* Prevent horizontal overflow on mobile */
     overflow-x: hidden;
   }
-  /* Tabular figures for ALL numeric content, per spec. */
   body {
     font-feature-settings: 'tnum' 1, 'cv11' 1;
-    /* Safe area padding for notched/bottom-bar devices */
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
-  /* Remove tap highlight on mobile; we add our own active states */
   * {
     -webkit-tap-highlight-color: transparent;
   }
-  /* Minimum tap target size */
   button, a, [role="button"] {
     min-height: 44px;
     min-width: 44px;
+  }
+  /* Clean, accessible focus ring using brand amber */
+  :focus-visible {
+    outline: 2px solid #E07B39;
+    outline-offset: 2px;
+    border-radius: 4px;
   }
 }
 
@@ -32,43 +33,108 @@
   .num {
     font-variant-numeric: tabular-nums;
   }
+  /* Slightly elevated card with softer radius */
   .card {
-    @apply bg-card border border-hairline rounded-lg;
+    @apply bg-card border border-hairline rounded-xl shadow-[0_1px_3px_0_rgb(0,0,0,0.06)];
   }
   .btn {
-    @apply inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-md
-           text-sm font-medium transition-colors
-           min-h-[44px] select-none touch-manipulation;
+    @apply inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg
+           text-sm font-medium transition-all duration-150 ease-out
+           min-h-[44px] select-none touch-manipulation
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber/60 focus-visible:ring-offset-1;
   }
   .btn-primary {
-    @apply bg-amber text-white hover:bg-[#C76A2D] active:bg-[#B85E28] disabled:opacity-60;
+    @apply bg-amber text-white
+           hover:bg-[#C76A2D] hover:shadow-[0_2px_8px_0_rgba(224,123,57,0.30)]
+           active:scale-[0.97] active:bg-[#B85E28]
+           disabled:opacity-60 disabled:pointer-events-none;
   }
   .btn-secondary {
-    @apply border border-hairline text-ink hover:bg-hairline/60 active:bg-hairline;
+    @apply border border-hairline text-ink bg-white
+           hover:bg-hairline/50 hover:border-ink/20
+           active:scale-[0.97] active:bg-hairline
+           disabled:opacity-50 disabled:pointer-events-none;
   }
   .btn-ghost {
-    @apply text-ink hover:bg-hairline/60 active:bg-hairline;
+    @apply text-ink hover:bg-hairline/60 active:bg-hairline active:scale-[0.97];
+  }
+  .btn-danger {
+    @apply bg-bad/10 text-bad border border-bad/30
+           hover:bg-bad hover:text-white hover:border-bad
+           active:scale-[0.97]
+           disabled:opacity-50 disabled:pointer-events-none;
   }
   .input {
-    @apply w-full bg-white border border-hairline rounded-md px-3 py-2 text-sm
-           focus:outline-none focus:ring-2 focus:ring-amber/40 focus:border-amber;
+    @apply w-full bg-white border border-hairline rounded-lg px-3 py-2.5 text-sm
+           transition-all duration-150
+           focus:outline-none focus:ring-2 focus:ring-amber/40 focus:border-amber
+           placeholder:text-muted/60;
   }
   .label {
     @apply text-xs font-medium text-muted uppercase tracking-wide;
   }
 }
 
+/* ── Entrance / motion animations ─────────────────────────────────────────── */
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes check-pop {
+  0%   { transform: scale(0); opacity: 0; }
+  60%  { transform: scale(1.25); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-fade-up   { animation: fade-up 220ms ease-out both; }
+.animate-fade-in   { animation: fade-in 200ms ease-out both; }
+.animate-scale-in  { animation: scale-in 180ms ease-out both; }
+.animate-check-pop { animation: check-pop 360ms cubic-bezier(0.34,1.56,0.64,1) both; }
+
+/* Staggered grid children — wrap the grid in .stagger-children */
+.stagger-children > *:nth-child(1) { animation-delay:   0ms; }
+.stagger-children > *:nth-child(2) { animation-delay:  50ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 100ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 150ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 200ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 250ms; }
+.stagger-children > *:nth-child(7) { animation-delay: 300ms; }
+.stagger-children > *:nth-child(8) { animation-delay: 350ms; }
+
 /* Phase 5b: multi-step apply form slide-fade. */
 @keyframes step-in {
-  from {
-    opacity: 0;
-    transform: translateX(14px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+  from { opacity: 0; transform: translateX(14px); }
+  to   { opacity: 1; transform: translateX(0); }
 }
-.step-in {
-  animation: step-in 260ms ease-out;
+.step-in { animation: step-in 260ms ease-out; }
+
+/* Table row hover — subtle, fast */
+.table-row-hover {
+  @apply transition-colors duration-100 hover:bg-amber/[0.04];
+}
+
+/* Card hover lift — for interactive cards */
+.card-lift {
+  @apply transition-all duration-150 hover:shadow-[0_4px_16px_0_rgba(0,0,0,0.09)] hover:-translate-y-px;
+}
+
+/* prefers-reduced-motion: strip all motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

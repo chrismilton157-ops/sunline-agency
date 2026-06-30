@@ -66,7 +66,7 @@ export function Sidebar({ email, role }: { email: string; role?: string }) {
         </div>
       </div>
 
-      <nav className="flex md:flex-col gap-1 flex-1 overflow-x-auto md:overflow-x-visible">
+      <nav className="flex md:flex-col gap-0.5 flex-1 overflow-x-auto md:overflow-x-visible">
         {items.map((it) => {
           const active =
             path === it.href || path.startsWith(it.href + '/');
@@ -74,12 +74,13 @@ export function Sidebar({ email, role }: { email: string; role?: string }) {
             <Link
               key={it.href}
               href={it.href}
-              className={`px-3 py-2.5 md:py-2 rounded-md text-sm font-medium whitespace-nowrap
+              className={`px-3 py-2.5 md:py-2 rounded-lg text-sm font-medium whitespace-nowrap
                 min-h-[44px] flex items-center touch-manipulation
+                transition-all duration-150 ease-out
                 ${
                   active
-                    ? 'bg-amber text-white'
-                    : 'text-white/80 hover:bg-white/5 active:bg-white/10'
+                    ? 'bg-amber text-white shadow-[0_2px_8px_0_rgba(224,123,57,0.30)]'
+                    : 'text-white/70 hover:bg-white/8 hover:text-white active:bg-white/12'
                 }`}
             >
               {it.label}

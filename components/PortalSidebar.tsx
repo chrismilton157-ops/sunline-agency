@@ -40,18 +40,19 @@ export function PortalSidebar({ company }: { company: string }) {
         <div className="text-white/50 text-xs mt-0.5 ml-7">Performance portal</div>
       </div>
 
-      <nav className="flex md:flex-col gap-1 flex-1 overflow-x-auto">
+      <nav className="flex md:flex-col gap-0.5 flex-1 overflow-x-auto">
         {items.map((it) => {
           const active = path === it.href || path.startsWith(it.href + '/');
           return (
             <Link
               key={it.href}
               href={it.href}
-              className={`px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap
+              className={`px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap
+                transition-all duration-150 ease-out
                 ${
                   active
-                    ? 'bg-amber text-white'
-                    : 'text-white/80 hover:bg-white/5'
+                    ? 'bg-amber text-white shadow-[0_2px_8px_0_rgba(224,123,57,0.30)]'
+                    : 'text-white/70 hover:bg-white/8 hover:text-white active:bg-white/12'
                 }`}
             >
               {it.label}

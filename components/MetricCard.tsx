@@ -16,7 +16,7 @@ export function MetricCard({ label, value, hint, tone = 'default' }: Props) {
           : 'text-ink';
 
   return (
-    <div className="card p-4">
+    <div className="card p-4 animate-fade-up card-lift">
       <div className="label">{label}</div>
       <div className={`num mt-2 text-2xl md:text-3xl font-semibold tracking-tight ${valueClass}`}>
         {value}

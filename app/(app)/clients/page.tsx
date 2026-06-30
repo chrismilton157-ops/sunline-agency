@@ -3,6 +3,7 @@ export const metadata: Metadata = { title: 'Clients' };
 
 import Link from 'next/link';
 import { HealthBadge } from '@/components/HealthBadge';
+import { EmptyState } from '@/components/EmptyState';
 import { loadAll } from '@/lib/data';
 import {
   clientMetrics,
@@ -75,7 +76,7 @@ export default async function ClientsPage() {
               return (
                 <tr
                   key={m.client.id}
-                  className="border-b last:border-b-0 border-hairline hover:bg-hairline/30 cursor-pointer"
+                  className="border-b last:border-b-0 border-hairline table-row-hover cursor-pointer"
                 >
                   <td className="px-5 py-3">
                     <Link
@@ -114,8 +115,12 @@ export default async function ClientsPage() {
             })}
             {perClient.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-5 py-8 text-center text-muted">
-                  No clients yet.
+                <td colSpan={6}>
+                  <EmptyState
+                    preset="clients"
+                    heading="No clients yet"
+                    body="Add your first client to get started."
+                  />
                 </td>
               </tr>
             )}
