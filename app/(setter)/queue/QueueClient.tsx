@@ -200,6 +200,7 @@ export function QueueClient({ leads, userId }: Props) {
                     <button
                       onClick={() => handleClaim(lead)}
                       disabled={isPending || !!activeLead}
+                      aria-label={`Claim ${lead.name ?? 'unknown lead'}`}
                       className="text-[11px] px-2.5 py-1 rounded bg-ink text-white hover:bg-ink/80 disabled:opacity-40 transition-colors"
                     >
                       Claim
@@ -214,19 +215,21 @@ export function QueueClient({ leads, userId }: Props) {
 
       {/* ── Active call card ─────────────────────────── */}
       <section className="flex-1 min-w-0 relative">
-        {/* Booked success flash */}
-        {bookedSuccess && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center
-                          bg-good/10 border-2 border-good/40 rounded-xl pointer-events-none
-                          animate-fade-in">
-            <svg className="w-14 h-14 text-good animate-check-pop" fill="none" viewBox="0 0 56 56" stroke="currentColor" strokeWidth={2.5}>
-              <circle cx="28" cy="28" r="26" className="opacity-20" fill="currentColor" stroke="none"/>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16 28l8 8 16-16"/>
-            </svg>
-            <div className="mt-3 text-good font-semibold text-lg">Booked!</div>
-            <div className="text-good/60 text-sm mt-1">Appointment added to the diary</div>
-          </div>
-        )}
+        {/* Booked success flash — aria-live so screen readers announce it */}
+        <div role="status" aria-live="polite" aria-atomic="true">
+          {bookedSuccess && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center
+                            bg-good/10 border-2 border-good/40 rounded-xl pointer-events-none
+                            animate-fade-in">
+              <svg className="w-14 h-14 text-good animate-check-pop" aria-hidden="true" fill="none" viewBox="0 0 56 56" stroke="currentColor" strokeWidth={2.5}>
+                <circle cx="28" cy="28" r="26" className="opacity-20" fill="currentColor" stroke="none"/>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16 28l8 8 16-16"/>
+              </svg>
+              <div className="mt-3 text-good font-semibold text-lg">Booked!</div>
+              <div className="text-good/60 text-sm mt-1">Appointment added to the diary</div>
+            </div>
+          )}
+        </div>
         {!activeLead ? (
           <div className="card overflow-hidden">
             <EmptyState
@@ -268,13 +271,14 @@ export function QueueClient({ leads, userId }: Props) {
             {activeLead.phone && (
               <a
                 href={`tel:${activeLead.phone.replace(/\s/g, '')}`}
+                aria-label={`Call ${activeLead.name ?? 'lead'} on ${activeLead.phone}`}
                 className="flex items-center gap-3 px-4 py-3 rounded-lg bg-good/10 border border-good/30 hover:bg-good/20 transition-colors group"
               >
-                <span className="text-2xl">📞</span>
+                <span className="text-2xl" aria-hidden="true">📞</span>
                 <span className="text-good font-semibold text-lg num tracking-tight group-hover:underline">
                   {activeLead.phone}
                 </span>
-                <span className="text-good/60 text-xs ml-auto">tap to dial</span>
+                <span className="text-good/60 text-xs ml-auto" aria-hidden="true">tap to dial</span>
               </a>
             )}
 
@@ -425,8 +429,9 @@ export function QueueClient({ leads, userId }: Props) {
                   {/* Conditional fields for no-contact outcomes */}
                   {disposition === 'callback' && (
                     <div>
-                      <label className="block text-xs text-muted mb-1">Callback date &amp; time</label>
+                      <label htmlFor="queue-callback-at" className="block text-xs text-muted mb-1">Callback date &amp; time</label>
                       <input
+                        id="queue-callback-at"
                         type="datetime-local"
                         name="callback_at"
                         required
@@ -437,8 +442,9 @@ export function QueueClient({ leads, userId }: Props) {
 
                   {disposition === 'disqualified' && (
                     <div>
-                      <label className="block text-xs text-muted mb-1">Reason (optional)</label>
+                      <label htmlFor="queue-disqual-reason" className="block text-xs text-muted mb-1">Reason (optional)</label>
                       <input
+                        id="queue-disqual-reason"
                         type="text"
                         name="disqual_reason"
                         placeholder="e.g. renting, flat roof, no interest"
@@ -448,8 +454,9 @@ export function QueueClient({ leads, userId }: Props) {
                   )}
 
                   <div>
-                    <label className="block text-xs text-muted mb-1">Notes (optional)</label>
+                    <label htmlFor="queue-notes" className="block text-xs text-muted mb-1">Notes (optional)</label>
                     <input
+                      id="queue-notes"
                       type="text"
                       name="notes"
                       placeholder="Anything useful for the next call…"

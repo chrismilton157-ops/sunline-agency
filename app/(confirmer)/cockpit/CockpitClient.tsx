@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useTransition, useMemo } from 'react';
+import React, { useState, useTransition, useMemo, useEffect, useRef, useId } from 'react';
 import { HelpTooltip } from '@/components/onboarding/HelpTooltip';
 import type { CockpitAppointment, ConfirmerStatsRich, SmsTemplate } from '@/lib/types';
 import {
@@ -74,27 +74,27 @@ function getUrgency(appt: CockpitAppointment): UrgencyLevel {
 function UrgencyBadge({ level }: { level: UrgencyLevel }) {
   if (level === 'callback-due') return (
     <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 border border-purple-300 animate-pulse">
-      ⏰ Callback due
+      <span aria-hidden="true">⏰ </span>Callback due
     </span>
   );
   if (level === 'confirmed') return (
     <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-good/10 text-good border border-good/30">
-      ✓ Confirmed
+      <span aria-hidden="true">✓ </span>Confirmed
     </span>
   );
   if (level === 'same-day') return (
     <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-red-500/15 text-red-600 border border-red-400/40 animate-pulse">
-      ⚠ TODAY
+      <span aria-hidden="true">⚠ </span>TODAY — same day
     </span>
   );
   if (level === 'urgent') return (
     <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-amber/15 text-amber border border-amber/40">
-      ! &lt;48h
+      Urgent — under 48h
     </span>
   );
   if (level === 'snoozed') return (
     <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-500 border border-blue-200">
-      💤 Snoozed
+      <span aria-hidden="true">💤 </span>Snoozed
     </span>
   );
   return (
@@ -162,7 +162,7 @@ function Timeline({
     <div className="space-y-1.5">
       {events.map((ev) => (
         <div key={ev.id} className="flex items-start gap-2 text-xs">
-          <span className="shrink-0 text-base leading-none mt-0.5">
+          <span className="shrink-0 text-base leading-none mt-0.5" aria-hidden="true">
             {EVENT_ICONS[ev.event_type] ?? '·'}
           </span>
           <div className="flex-1 min-w-0">
@@ -232,13 +232,59 @@ function StatsBar({ stats }: { stats: ConfirmerStatsRich }) {
 // ── Modal primitives ──────────────────────────────────────────────────────────
 
 function Modal({ onClose, title, children }: { onClose: () => void; title: string; children: React.ReactNode }) {
+  const titleId = useId();
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Escape closes
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  // Focus trap
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const focusable = el.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    );
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    first?.focus();
+    function trap(e: KeyboardEvent) {
+      if (e.key !== 'Tab') return;
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last?.focus(); }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first?.focus(); }
+      }
+    }
+    el.addEventListener('keydown', trap);
+    return () => el.removeEventListener('keydown', trap);
+  }, []);
+
+  // Lock body scroll
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
       <div
+        ref={containerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold text-ink">{title}</h2>
+        <h2 id={titleId} className="text-lg font-semibold text-ink">{title}</h2>
         {children}
       </div>
     </div>
@@ -405,8 +451,9 @@ function RescheduleModal({ appt, onClose, onDone }: { appt: CockpitAppointment; 
 
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-xs font-medium text-ink mb-1">New date</label>
+            <label htmlFor="rs-date" className="block text-xs font-medium text-ink mb-1">New date</label>
             <input
+              id="rs-date"
               type="date"
               value={newDate}
               onChange={(e) => setNewDate(e.target.value)}
@@ -414,8 +461,9 @@ function RescheduleModal({ appt, onClose, onDone }: { appt: CockpitAppointment; 
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-ink mb-1">Time</label>
+            <label htmlFor="rs-time" className="block text-xs font-medium text-ink mb-1">Time</label>
             <input
+              id="rs-time"
               type="time"
               value={newTime}
               onChange={(e) => setNewTime(e.target.value)}
@@ -425,8 +473,9 @@ function RescheduleModal({ appt, onClose, onDone }: { appt: CockpitAppointment; 
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-ink mb-1">Notes (optional)</label>
+          <label htmlFor="rs-notes" className="block text-xs font-medium text-ink mb-1">Notes (optional)</label>
           <input
+            id="rs-notes"
             type="text"
             placeholder="e.g. homeowner on holiday until…"
             value={notes}
@@ -535,13 +584,17 @@ function AttemptModal({ appt, onClose, onDone }: { appt: CockpitAppointment; onC
           </button>
         ))}
       </div>
-      <input
-        type="text"
-        placeholder="Optional note…"
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        className="w-full border border-hairline rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber/40"
-      />
+      <div>
+        <label htmlFor="attempt-notes" className="block text-xs font-medium text-ink mb-1">Note (optional)</label>
+        <input
+          id="attempt-notes"
+          type="text"
+          placeholder="Optional note…"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          className="w-full border border-hairline rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber/40"
+        />
+      </div>
     </Modal>
   );
 }
@@ -584,13 +637,17 @@ function InboundModal({ appt, onClose, onDone }: { appt: CockpitAppointment; onC
           </button>
         ))}
       </div>
-      <input
-        type="text"
-        placeholder="What did the homeowner say?"
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        className="w-full border border-hairline rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber/40"
-      />
+      <div>
+        <label htmlFor="inbound-notes" className="block text-xs font-medium text-ink mb-1">What did the homeowner say? (optional)</label>
+        <input
+          id="inbound-notes"
+          type="text"
+          placeholder="What did the homeowner say?"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          className="w-full border border-hairline rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber/40"
+        />
+      </div>
       <ModalActions onClose={onClose} onSubmit={submit} submitLabel={pending ? 'Logging…' : 'Log call'} disabled={pending} />
     </Modal>
   );
@@ -617,13 +674,13 @@ function CallbackModal({ appt, onClose, onDone }: { appt: CockpitAppointment; on
       <div className="text-sm text-muted">{appt.lead_name}</div>
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <label className="block text-xs font-medium text-ink mb-1">Date</label>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
+          <label htmlFor="cb-date" className="block text-xs font-medium text-ink mb-1">Date</label>
+          <input id="cb-date" type="date" value={date} onChange={(e) => setDate(e.target.value)}
             className="w-full border border-hairline rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber/40" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-ink mb-1">Time</label>
-          <input type="time" value={time} onChange={(e) => setTime(e.target.value)}
+          <label htmlFor="cb-time" className="block text-xs font-medium text-ink mb-1">Time</label>
+          <input id="cb-time" type="time" value={time} onChange={(e) => setTime(e.target.value)}
             className="w-full border border-hairline rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber/40" />
         </div>
       </div>
@@ -928,10 +985,7 @@ function AppointmentCard({
 
       <div className={`rounded-2xl border-2 p-4 space-y-3 transition-all ${cardBg}`}>
         {/* Header */}
-        <div
-          className="flex items-start justify-between gap-3 flex-wrap cursor-pointer"
-          onClick={() => compact && setExpanded((v) => !v)}
-        >
+        <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-lg font-bold text-ink truncate">
@@ -941,17 +995,25 @@ function AppointmentCard({
               <StrengthBadge strength={appt.confirmation_strength} />
               {appt.flagged && (
                 <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-600 border border-red-300">
-                  🚩 Flagged
+                  <span aria-hidden="true">🚩 </span>Flagged
                 </span>
               )}
             </div>
             <div className="text-sm text-muted mt-0.5">{appt.client_company}</div>
           </div>
-          <div className="text-right shrink-0">
+          <div className="text-right shrink-0 flex flex-col items-end gap-1">
             <div className="num text-base font-bold text-ink">{fmtDate(appt.appt_date)}</div>
             <div className="num text-sm font-semibold text-amber">{fmtTime(appt.appt_date)}</div>
             {compact && (
-              <div className="text-xs text-muted mt-0.5">{expanded ? '▲' : '▼'}</div>
+              <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                aria-expanded={expanded}
+                aria-label={expanded ? 'Collapse appointment details' : 'Expand appointment details'}
+                className="text-xs text-muted hover:text-ink transition-colors px-1"
+              >
+                {expanded ? '▲' : '▼'}
+              </button>
             )}
           </div>
         </div>
@@ -960,11 +1022,12 @@ function AppointmentCard({
         {appt.lead_phone && (
           <a
             href={`tel:${appt.lead_phone.replace(/\s+/g, '')}`}
+            aria-label={`Call ${appt.lead_name ?? 'homeowner'} on ${appt.lead_phone}`}
             className="flex items-center gap-3 rounded-xl bg-amber/10 border border-amber/30 px-4 py-3 hover:bg-amber/20 transition-colors"
           >
-            <span className="text-lg">📞</span>
+            <span className="text-lg" aria-hidden="true">📞</span>
             <span className="num text-base font-bold text-amber tracking-wide">{appt.lead_phone}</span>
-            <span className="text-xs text-amber/70 ml-auto">Tap to call</span>
+            <span className="text-xs text-amber/70 ml-auto" aria-hidden="true">Tap to call</span>
           </a>
         )}
 
@@ -1031,10 +1094,11 @@ function AppointmentCard({
               <div className="rounded-xl border border-hairline bg-white/60 overflow-hidden">
                 <button
                   onClick={() => setChecklistOpen((v) => !v)}
+                  aria-expanded={checklistOpen}
                   className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-ink hover:bg-hairline/20 transition-colors"
                 >
                   <span>Call checklist</span>
-                  <span className="text-muted text-xs">{checklistOpen ? '▲' : '▼'}</span>
+                  <span className="text-muted text-xs" aria-hidden="true">{checklistOpen ? '▲' : '▼'}</span>
                 </button>
                 {checklistOpen && (
                   <ul className="px-4 pb-3 space-y-1.5">
@@ -1064,7 +1128,7 @@ function AppointmentCard({
                   onClick={() => setModal('confirm')}
                   className="col-span-2 py-4 rounded-2xl bg-good text-white text-base font-bold hover:bg-good/90 transition-colors shadow-sm"
                 >
-                  ✓ Confirm appointment
+                  <span aria-hidden="true">✓ </span>Confirm appointment
                 </button>
               )}
               <button onClick={() => setModal('attempt')}
@@ -1089,27 +1153,27 @@ function AppointmentCard({
             <div className="grid grid-cols-3 gap-2">
               <button onClick={() => setModal('callback')}
                 className="py-2.5 rounded-xl border border-purple-200 bg-purple-50 text-xs font-medium text-purple-700 hover:bg-purple-100 transition-colors">
-                ⏰ Set callback
+                <span aria-hidden="true">⏰ </span>Set callback
               </button>
               <button onClick={() => setModal('snooze')}
                 className="py-2.5 rounded-xl border border-blue-200 bg-blue-50 text-xs font-medium text-blue-600 hover:bg-blue-100 transition-colors">
-                💤 Snooze
+                <span aria-hidden="true">💤 </span>Snooze
               </button>
               <button onClick={() => setModal('note')}
                 className="py-2.5 rounded-xl border border-hairline bg-white text-xs font-medium text-ink hover:bg-hairline/30 transition-colors">
-                📝 Add note
+                <span aria-hidden="true">📝 </span>Add note
               </button>
               <button onClick={() => setModal('text')}
                 className="py-2.5 rounded-xl border border-hairline bg-white text-xs font-medium text-ink hover:bg-hairline/30 transition-colors">
-                💬 Send text
+                <span aria-hidden="true">💬 </span>Send text
               </button>
               <button onClick={() => setModal('flag')}
                 className="py-2.5 rounded-xl border border-red-200 bg-red-50 text-xs font-medium text-red-600 hover:bg-red-100 transition-colors">
-                🚩 Flag
+                <span aria-hidden="true">🚩 </span>Flag
               </button>
               <button onClick={() => setModal('outcome')}
                 className="py-2.5 rounded-xl border border-hairline bg-white text-xs font-medium text-ink hover:bg-hairline/30 transition-colors">
-                📊 Log outcome
+                <span aria-hidden="true">📊 </span>Log outcome
               </button>
             </div>
           </>
@@ -1394,7 +1458,9 @@ function LookupTab({ currentUserId, smsTemplates }: { currentUserId: string; sms
         Search by homeowner name or phone to find an appointment not in your queue.
       </p>
       <div className="flex gap-2">
+        <label htmlFor="lookup-search" className="sr-only">Search by name or phone</label>
         <input
+          id="lookup-search"
           type="text"
           placeholder="Name or phone…"
           value={query}
@@ -1439,13 +1505,13 @@ function OwnerStatsTable({ stats }: { stats: ConfirmerStatsRich[] }) {
       <table className="w-full text-sm">
         <thead className="bg-hairline/10 border-b border-hairline">
           <tr>
-            <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted uppercase tracking-wide">Confirmer</th>
-            <th className="text-right px-3 py-2.5 text-xs font-semibold text-muted uppercase tracking-wide">Today</th>
-            <th className="text-right px-3 py-2.5 text-xs font-semibold text-muted uppercase tracking-wide">Total</th>
-            <th className="text-right px-3 py-2.5 text-xs font-semibold text-muted uppercase tracking-wide">Show%</th>
-            <th className="text-right px-3 py-2.5 text-xs font-semibold text-muted uppercase tracking-wide">Save%</th>
-            <th className="text-right px-3 py-2.5 text-xs font-semibold text-muted uppercase tracking-wide">Texts</th>
-            <th className="text-right px-3 py-2.5 text-xs font-semibold text-muted uppercase tracking-wide">Flags</th>
+            <th scope="col" className="text-left px-4 py-2.5 text-xs font-semibold text-muted uppercase tracking-wide">Confirmer</th>
+            <th scope="col" className="text-right px-3 py-2.5 text-xs font-semibold text-muted uppercase tracking-wide">Today</th>
+            <th scope="col" className="text-right px-3 py-2.5 text-xs font-semibold text-muted uppercase tracking-wide">Total</th>
+            <th scope="col" className="text-right px-3 py-2.5 text-xs font-semibold text-muted uppercase tracking-wide">Show%</th>
+            <th scope="col" className="text-right px-3 py-2.5 text-xs font-semibold text-muted uppercase tracking-wide">Save%</th>
+            <th scope="col" className="text-right px-3 py-2.5 text-xs font-semibold text-muted uppercase tracking-wide">Texts</th>
+            <th scope="col" className="text-right px-3 py-2.5 text-xs font-semibold text-muted uppercase tracking-wide">Flags</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-hairline">
@@ -1530,10 +1596,14 @@ export function CockpitClient({
       )}
 
       {/* Tab bar */}
-      <div className="flex gap-1 bg-hairline/20 rounded-xl p-1 overflow-x-auto">
+      <div role="tablist" aria-label="Cockpit views" className="flex gap-1 bg-hairline/20 rounded-xl p-1 overflow-x-auto">
         {TABS.map((t) => (
           <button
             key={t.id}
+            role="tab"
+            aria-selected={tab === t.id}
+            aria-controls={`tabpanel-${t.id}`}
+            id={`tab-${t.id}`}
             onClick={() => setTab(t.id)}
             className={`flex-1 min-w-[80px] py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1.5 ${
               tab === t.id
@@ -1545,7 +1615,7 @@ export function CockpitClient({
             {t.badge != null && t.badge > 0 && (
               <span className={`inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-xs font-bold ${
                 tab === t.id ? 'bg-amber text-white' : 'bg-hairline/50 text-muted'
-              }`}>
+              }`} aria-label={`${t.badge} pending`}>
                 {t.badge}
               </span>
             )}
@@ -1554,7 +1624,7 @@ export function CockpitClient({
       </div>
 
       {/* Tab content */}
-      <div>
+      <div role="tabpanel" id={`tabpanel-${tab}`} aria-labelledby={`tab-${tab}`}>
         {tab === 'my-day' && (
           <MyDayTab
             appointments={appointments}

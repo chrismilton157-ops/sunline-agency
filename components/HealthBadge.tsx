@@ -15,13 +15,15 @@ export function HealthBadge({ health }: { health: Health }) {
         ? 'bg-amber'
         : 'bg-bad';
   const pulseClass = band !== 'Healthy' ? 'animate-pulse' : '';
+  const reasonText = health.reasons.join('. ') || 'No issues';
   return (
     <span
       className={`num inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full
                   text-xs font-medium border transition-colors ${cls}`}
-      title={health.reasons.join(' • ') || 'All good'}
+      title={reasonText}
+      aria-label={`Health: ${band}, score ${score}. ${reasonText}`}
     >
-      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotCls} ${pulseClass}`} />
+      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotCls} ${pulseClass}`} aria-hidden="true" />
       {band} · {score}
     </span>
   );

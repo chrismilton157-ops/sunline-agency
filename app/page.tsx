@@ -31,13 +31,15 @@ export default async function LandingPage() {
   return (
     <div className="font-sans antialiased bg-bg text-ink">
       <Nav />
-      <Hero />
-      <PainSection />
-      <PillarsSection />
-      <HowItWorksSection />
-      <PortalPreviewSection />
-      <TestimonialsSection />
-      <EnquirySection />
+      <main id="main-content">
+        <Hero />
+        <PainSection />
+        <PillarsSection />
+        <HowItWorksSection />
+        <PortalPreviewSection />
+        <TestimonialsSection />
+        <EnquirySection />
+      </main>
       <Footer />
     </div>
   );
@@ -50,17 +52,19 @@ function Nav() {
     <header className="sticky top-0 z-50 bg-sidebar/95 backdrop-blur-sm border-b border-white/10">
       <div className="max-w-6xl mx-auto px-5 sm:px-8 h-16 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-amber font-bold text-lg tracking-tight">Sunline</span>
-          <span className="hidden sm:block text-white/40 text-xs font-medium uppercase tracking-widest ml-1">
+          <span className="text-amber font-bold text-lg tracking-tight" aria-label="Sunline — home">Sunline</span>
+          <span className="hidden sm:block text-white/40 text-xs font-medium uppercase tracking-widest ml-1" aria-hidden="true">
             Solar Appointments
           </span>
         </div>
-        <a
-          href="#enquiry"
-          className="btn btn-primary text-sm px-4 py-2 font-semibold"
-        >
-          Book a call
-        </a>
+        <nav aria-label="Site navigation">
+          <a
+            href="#enquiry"
+            className="btn btn-primary text-sm px-4 py-2 font-semibold"
+          >
+            Book a call
+          </a>
+        </nav>
       </div>
     </header>
   );
@@ -238,7 +242,7 @@ function PillarsSection() {
               <ul className="space-y-2 mb-5">
                 {p.detail.map((d) => (
                   <li key={d} className="flex items-start gap-2 text-sm text-white/70">
-                    <svg className="w-4 h-4 mt-0.5 shrink-0 text-good" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <svg className="w-4 h-4 mt-0.5 shrink-0 text-good" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                     {d}
@@ -336,7 +340,7 @@ function PortalPreviewSection() {
                 <div className="text-xs text-white/40 uppercase tracking-widest">Your portal</div>
                 <div className="text-white font-semibold text-sm mt-0.5">Performance — this month</div>
               </div>
-              <div className="w-2 h-2 rounded-full bg-good animate-pulse" />
+              <div className="w-2 h-2 rounded-full bg-good animate-pulse" aria-hidden="true" />
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {[
@@ -386,7 +390,7 @@ function TestimonialsSection() {
             <div key={i} className="card p-6 flex flex-col">
               <div className="flex gap-1 mb-4">
                 {[1, 2, 3, 4, 5].map((s) => (
-                  <svg key={s} className="w-4 h-4 text-amber" fill="currentColor" viewBox="0 0 20 20">
+                  <svg key={s} className="w-4 h-4 text-amber" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                   </svg>
                 ))}

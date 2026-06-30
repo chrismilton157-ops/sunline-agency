@@ -39,6 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
       <body>
+        <a href="#main-content" className="skip-link">Skip to main content</a>
         {children}
         <script
           dangerouslySetInnerHTML={{

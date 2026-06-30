@@ -14,7 +14,7 @@ export default async function LoginPage({
   if (user) redirect('/overview');
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-4">
+    <main id="main-content" className="min-h-screen flex items-center justify-center px-4">
       <div className="card w-full max-w-sm p-6">
         <div className="mb-6">
           <div className="text-amber font-semibold text-lg">Sunline</div>

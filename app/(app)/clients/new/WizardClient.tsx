@@ -400,10 +400,10 @@ export default function WizardClient({ defaultPerSitFee = 75 }: { defaultPerSitF
                   <table className="w-full text-xs mt-2">
                     <thead>
                       <tr className="text-muted uppercase border-b border-hairline">
-                        <th className="text-left py-1.5">Prefix</th>
-                        <th className="text-right py-1.5">Typical / wk</th>
-                        <th className="text-right py-1.5">Total promised</th>
-                        <th className="text-right py-1.5">Shortfall</th>
+                        <th scope="col" className="text-left py-1.5">Prefix</th>
+                        <th scope="col" className="text-right py-1.5">Typical / wk</th>
+                        <th scope="col" className="text-right py-1.5">Total promised</th>
+                        <th scope="col" className="text-right py-1.5">Shortfall</th>
                       </tr>
                     </thead>
                     <tbody>

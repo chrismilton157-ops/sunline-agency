@@ -70,16 +70,16 @@ export default async function AttributionPage() {
         <table className="w-full text-sm min-w-[720px]">
           <thead className="text-muted text-xs uppercase bg-bg/60">
             <tr className="border-b border-hairline">
-              <th className="text-left font-medium px-5 py-3">Campaign</th>
-              <th className="text-right font-medium px-3 py-3">Spend</th>
-              <th className="text-right font-medium px-3 py-3">Leads</th>
-              <th className="text-right font-medium px-3 py-3">Appts</th>
-              <th className="text-right font-medium px-3 py-3">Sales</th>
-              <th className="text-right font-medium px-3 py-3">Revenue</th>
-              <th className="text-right font-medium px-3 py-3">CPL</th>
-              <th className="text-right font-medium px-3 py-3">CPA</th>
-              <th className="text-right font-medium px-3 py-3">CPS</th>
-              <th className="text-right font-medium px-5 py-3">ROAS</th>
+              <th scope="col" className="text-left font-medium px-5 py-3">Campaign</th>
+              <th scope="col" className="text-right font-medium px-3 py-3">Spend</th>
+              <th scope="col" className="text-right font-medium px-3 py-3">Leads</th>
+              <th scope="col" className="text-right font-medium px-3 py-3">Appts</th>
+              <th scope="col" className="text-right font-medium px-3 py-3">Sales</th>
+              <th scope="col" className="text-right font-medium px-3 py-3">Revenue</th>
+              <th scope="col" className="text-right font-medium px-3 py-3">CPL</th>
+              <th scope="col" className="text-right font-medium px-3 py-3">CPA</th>
+              <th scope="col" className="text-right font-medium px-3 py-3">CPS</th>
+              <th scope="col" className="text-right font-medium px-5 py-3">ROAS</th>
             </tr>
           </thead>
           <tbody>

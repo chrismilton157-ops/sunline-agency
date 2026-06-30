@@ -131,12 +131,12 @@ export function LeaderboardClient({ byRange, myId, myInitials, myAvatarUrl }: Pr
             <table className="w-full text-sm">
               <thead className="bg-hairline/30 text-muted text-xs uppercase tracking-wide">
                 <tr>
-                  <th className="px-4 py-3 text-left">#</th>
-                  <th className="px-4 py-3 text-left">Setter</th>
-                  <th className="px-4 py-3 text-right num">Dials</th>
-                  <th className="px-4 py-3 text-right num">Contacts</th>
-                  <th className="px-4 py-3 text-right num">Bookings</th>
-                  <th className="px-4 py-3 text-right num">Booking rate</th>
+                  <th scope="col" className="px-4 py-3 text-left">#</th>
+                  <th scope="col" className="px-4 py-3 text-left">Setter</th>
+                  <th scope="col" className="px-4 py-3 text-right num">Dials</th>
+                  <th scope="col" className="px-4 py-3 text-right num">Contacts</th>
+                  <th scope="col" className="px-4 py-3 text-right num">Bookings</th>
+                  <th scope="col" className="px-4 py-3 text-right num">Booking rate</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-hairline">

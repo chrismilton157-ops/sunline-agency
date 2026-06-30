@@ -109,13 +109,13 @@ export default async function LeadsPage() {
         <table className="w-full text-sm">
           <thead className="text-muted text-xs uppercase bg-bg/60">
             <tr className="border-b border-hairline">
-              <th className="text-left font-medium px-4 py-3">Captured</th>
-              <th className="text-left font-medium px-3 py-3">Homeowner</th>
-              <th className="text-left font-medium px-3 py-3">Postcode</th>
-              <th className="text-left font-medium px-3 py-3">Qualifying</th>
-              <th className="text-left font-medium px-3 py-3">Routed to</th>
-              <th className="text-left font-medium px-3 py-3">Consent</th>
-              <th className="text-right font-medium px-4 py-3">Erase</th>
+              <th scope="col" className="text-left font-medium px-4 py-3">Captured</th>
+              <th scope="col" className="text-left font-medium px-3 py-3">Homeowner</th>
+              <th scope="col" className="text-left font-medium px-3 py-3">Postcode</th>
+              <th scope="col" className="text-left font-medium px-3 py-3">Qualifying</th>
+              <th scope="col" className="text-left font-medium px-3 py-3">Routed to</th>
+              <th scope="col" className="text-left font-medium px-3 py-3">Consent</th>
+              <th scope="col" className="text-right font-medium px-4 py-3">Erase</th>
             </tr>
           </thead>
           <tbody>

@@ -124,17 +124,17 @@ export function SettersClient({ byRange, claimsByRange }: Props) {
             <table className="w-full text-sm min-w-[800px]">
               <thead className="bg-hairline/30 text-muted text-xs uppercase tracking-wide">
                 <tr>
-                  <th className="px-4 py-3 text-left">#</th>
-                  <th className="px-4 py-3 text-left">Setter</th>
-                  <th className="px-4 py-3 text-right num">Dials</th>
-                  <th className="px-4 py-3 text-right num">Contacts</th>
-                  <th className="px-4 py-3 text-right num">Bookings</th>
-                  <th className="px-4 py-3 text-right num">Booking rate</th>
+                  <th scope="col" className="px-4 py-3 text-left">#</th>
+                  <th scope="col" className="px-4 py-3 text-left">Setter</th>
+                  <th scope="col" className="px-4 py-3 text-right num">Dials</th>
+                  <th scope="col" className="px-4 py-3 text-right num">Contacts</th>
+                  <th scope="col" className="px-4 py-3 text-right num">Bookings</th>
+                  <th scope="col" className="px-4 py-3 text-right num">Booking rate</th>
                   {/* Owner-only quality columns */}
-                  <th className="px-4 py-3 text-right num text-amber/80">No-show rate</th>
-                  <th className="px-4 py-3 text-right num text-amber/80">Down-rating</th>
-                  <th className="px-4 py-3 text-right num text-amber/80">Disquals</th>
-                  <th className="px-4 py-3 text-left"></th>
+                  <th scope="col" className="px-4 py-3 text-right num text-amber/80">No-show rate</th>
+                  <th scope="col" className="px-4 py-3 text-right num text-amber/80">Down-rating</th>
+                  <th scope="col" className="px-4 py-3 text-right num text-amber/80">Disquals</th>
+                  <th scope="col" className="px-4 py-3 text-left"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-hairline">
@@ -279,9 +279,9 @@ export function SettersClient({ byRange, claimsByRange }: Props) {
             <table className="w-full text-sm">
               <thead className="bg-hairline/30 text-muted text-xs uppercase tracking-wide">
                 <tr>
-                  <th className="px-4 py-3 text-left">Setter</th>
-                  <th className="px-4 py-3 text-right num">Claims</th>
-                  <th className="px-4 py-3 text-right num">Avg speed-to-claim</th>
+                  <th scope="col" className="px-4 py-3 text-left">Setter</th>
+                  <th scope="col" className="px-4 py-3 text-right num">Claims</th>
+                  <th scope="col" className="px-4 py-3 text-right num">Avg speed-to-claim</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-hairline">

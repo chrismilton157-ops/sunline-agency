@@ -17,7 +17,7 @@ export default async function AppLayout({
   return (
     <div className="md:flex">
       <Sidebar email={user.email ?? ''} role="owner" />
-      <main className="flex-1 min-h-screen px-4 py-6 md:px-10 md:py-8 max-w-[1300px] mx-auto w-full">
+      <main id="main-content" className="flex-1 min-h-screen px-4 py-6 md:px-10 md:py-8 max-w-[1300px] mx-auto w-full">
         {children}
       </main>
     </div>

@@ -123,8 +123,8 @@ export default async function AllocationPage({
         <table className="w-full text-sm">
           <thead className="text-muted text-xs uppercase">
             <tr className="border-b border-hairline">
-              <th className="text-left font-medium px-5 py-2">Client</th>
-              <th className="text-right font-medium px-5 py-2">Allocated spend</th>
+              <th scope="col" className="text-left font-medium px-5 py-2">Client</th>
+              <th scope="col" className="text-right font-medium px-5 py-2">Allocated spend</th>
             </tr>
           </thead>
           <tbody>
@@ -255,16 +255,16 @@ export default async function AllocationPage({
                   <table className="w-full text-sm">
                     <thead className="text-muted text-xs uppercase">
                       <tr className="border-b border-hairline">
-                        <th className="text-left font-medium px-5 py-2">
+                        <th scope="col" className="text-left font-medium px-5 py-2">
                           Client
                         </th>
-                        <th className="text-right font-medium px-3 py-2">
+                        <th scope="col" className="text-right font-medium px-3 py-2">
                           Leads
                         </th>
-                        <th className="text-right font-medium px-3 py-2">
+                        <th scope="col" className="text-right font-medium px-3 py-2">
                           Share
                         </th>
-                        <th className="text-right font-medium px-5 py-2">
+                        <th scope="col" className="text-right font-medium px-5 py-2">
                           Allocated
                         </th>
                       </tr>

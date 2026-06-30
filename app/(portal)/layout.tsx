@@ -31,7 +31,7 @@ export default async function PortalLayout({
   return (
     <div className="md:flex">
       <PortalSidebar company={client.company} />
-      <main className="flex-1 min-h-screen px-4 py-6 md:px-10 md:py-8 max-w-[1100px] mx-auto w-full">
+      <main id="main-content" className="flex-1 min-h-screen px-4 py-6 md:px-10 md:py-8 max-w-[1100px] mx-auto w-full">
         {children}
       </main>
     </div>

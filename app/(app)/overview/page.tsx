@@ -215,12 +215,12 @@ export default async function OverviewPage() {
         <table className="w-full text-sm">
           <thead className="text-muted text-xs uppercase">
             <tr className="border-b border-hairline">
-              <th className="text-left font-medium px-5 py-2">Client</th>
-              <th className="text-right font-medium px-3 py-2">Sits</th>
-              <th className="text-right font-medium px-3 py-2">Revenue</th>
-              <th className="text-right font-medium px-3 py-2">Paid</th>
-              <th className="text-right font-medium px-3 py-2">ROI</th>
-              <th className="text-right font-medium px-5 py-2">Health</th>
+              <th scope="col" className="text-left font-medium px-5 py-2">Client</th>
+              <th scope="col" className="text-right font-medium px-3 py-2">Sits</th>
+              <th scope="col" className="text-right font-medium px-3 py-2">Revenue</th>
+              <th scope="col" className="text-right font-medium px-3 py-2">Paid</th>
+              <th scope="col" className="text-right font-medium px-3 py-2">ROI</th>
+              <th scope="col" className="text-right font-medium px-5 py-2">Health</th>
             </tr>
           </thead>
           <tbody>
