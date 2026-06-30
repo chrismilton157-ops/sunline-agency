@@ -1,5 +1,6 @@
 'use client';
-import { useState, useTransition, useMemo } from 'react';
+import React, { useState, useTransition, useMemo } from 'react';
+import { HelpTooltip } from '@/components/onboarding/HelpTooltip';
 import type { CockpitAppointment, ConfirmerStatsRich, SmsTemplate } from '@/lib/types';
 import {
   CANCELLATION_REASONS,
@@ -182,7 +183,7 @@ function Timeline({
 
 // ── Stat card ─────────────────────────────────────────────────────────────────
 
-function StatCard({ label, value, sub }: { label: string; value: string | null; sub?: string }) {
+function StatCard({ label, value, sub }: { label: React.ReactNode; value: string | null; sub?: string }) {
   return (
     <div className="rounded-xl border border-hairline bg-white px-4 py-3 text-center min-w-[100px] shrink-0">
       <div className="num text-2xl font-bold text-ink">{value ?? '—'}</div>
@@ -214,9 +215,9 @@ function StatsBar({ stats }: { stats: ConfirmerStatsRich }) {
     <div className="overflow-x-auto pb-1 -mx-1 px-1">
       <div className="flex gap-3 w-max">
         <StatCard label="Today" value={String(stats.today_confirmed)} sub="confirmed" />
-        <StatCard label="Show rate" value={stats.show_rate !== null ? `${stats.show_rate}%` : null} sub="of confirmed sat" />
-        <StatCard label="Save rate" value={stats.save_rate !== null ? `${stats.save_rate}%` : null} sub="inbound saves" />
-        <StatCard label="All-time" value={String(stats.confirmed_count)} sub={stats.confirmation_rate !== null ? `${stats.confirmation_rate}% rate` : undefined} />
+        <StatCard label={<span className="flex items-center gap-1">Show rate <HelpTooltip text="% of appointments you confirmed where the homeowner actually turned up. Target: 75%+." side="bottom" /></span>} value={stats.show_rate !== null ? `${stats.show_rate}%` : null} sub="of confirmed sat" />
+        <StatCard label={<span className="flex items-center gap-1">Save rate <HelpTooltip text="% of inbound calls where you rescued a lead who was about to cancel or no-show." side="bottom" /></span>} value={stats.save_rate !== null ? `${stats.save_rate}%` : null} sub="inbound saves" />
+        <StatCard label={<span className="flex items-center gap-1">All-time <HelpTooltip text="Total appointments confirmed. The % is your confirmation rate — what % of all assigned appointments you've confirmed. Target: 80%+." side="bottom" /></span>} value={String(stats.confirmed_count)} sub={stats.confirmation_rate !== null ? `${stats.confirmation_rate}% rate` : undefined} />
         <StatCard label="Texts sent" value={String(stats.texts_sent)} />
         <StatCard label="Flagged" value={String(stats.flagged_count)} />
         <div className="rounded-xl border border-hairline bg-white px-4 py-3 min-w-[120px] shrink-0">
@@ -1511,8 +1512,9 @@ export function CockpitClient({
         <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-ink">
           Confirmation cockpit
         </h1>
-        <p className="text-sm text-muted mt-1">
+        <p className="text-sm text-muted mt-1 flex items-center gap-1.5">
           Confirm, reschedule, or handle inbound calls on upcoming appointments.
+          <HelpTooltip text="Urgency order: Callback due → Same-day → Urgent (within 48h) → Upcoming. Always work top-to-bottom." side="right" />
         </p>
       </div>
 

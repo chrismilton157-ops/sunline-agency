@@ -1,7 +1,8 @@
+import type { ReactNode } from 'react';
 import { fmtPct } from '@/lib/format';
 
 type Props = {
-  label: string;
+  label: ReactNode;
   yours: number | null;
   benchmark: number;
   benchmarkLabel?: string;

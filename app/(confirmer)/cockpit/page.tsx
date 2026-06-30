@@ -7,6 +7,7 @@ import { getServerAdmin } from '@/lib/supabase/admin';
 import { computeConfirmerStats } from '@/lib/confirmer-metrics';
 import type { CockpitAppointment, AppointmentEvent, SmsTemplate, ConfirmerStatsRich } from '@/lib/types';
 import { CockpitClient } from './CockpitClient';
+import { TourManager } from '@/components/onboarding/TourManager';
 
 export const dynamic = 'force-dynamic';
 
@@ -169,6 +170,8 @@ export default async function CockpitPage() {
   }
 
   return (
+    <>
+    <TourManager role="confirmer" userId={user.id} />
     <CockpitClient
       appointments={appointments}
       smsTemplates={smsTemplates}
@@ -177,5 +180,6 @@ export default async function CockpitPage() {
       currentUserId={user.id}
       isOwner={isOwner}
     />
+    </>
   );
 }

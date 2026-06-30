@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { getServerAdmin } from '@/lib/supabase/admin';
+import { getServerSupabase } from '@/lib/supabase/server';
 import { loadAll, loadOwnerInvoices } from '@/lib/data';
+import { TourManager } from '@/components/onboarding/TourManager';
 import {
   clientMetrics,
   MONTHLY_OVERHEAD,
@@ -293,6 +295,9 @@ function CommandCard({
 // ---------------------------------------------------------------------------
 
 export default async function TodayPage() {
+  const supabase = getServerSupabase();
+  const { data: { user: authUser } } = await supabase.auth.getUser();
+
   const [
     {
       newLeads,
@@ -366,6 +371,7 @@ export default async function TodayPage() {
 
   return (
     <div className="space-y-8">
+      {authUser && <TourManager role="owner" userId={authUser.id} />}
       {/* Header */}
       <header>
         <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
