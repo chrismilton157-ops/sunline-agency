@@ -195,7 +195,7 @@ export function SOPEditor({ id, sopKey, title, content: initialContent, defaultC
               <SOPPdfButton title={title} content={savedContent} sopKey={sopKey} />
               <button
                 onClick={() => setMode('edit')}
-                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors"
+                className="px-4 py-2 bg-amber hover:opacity-90 text-white text-sm font-medium rounded-lg transition-opacity shadow-sm"
               >
                 Edit
               </button>
@@ -217,7 +217,7 @@ export function SOPEditor({ id, sopKey, title, content: initialContent, defaultC
               <button
                 onClick={handleSave}
                 disabled={isPending || !isDirty}
-                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white text-sm font-medium rounded-lg transition-colors"
+                className="px-4 py-2 bg-amber hover:opacity-90 disabled:opacity-40 text-white text-sm font-medium rounded-lg transition-opacity shadow-sm"
               >
                 {isPending ? 'Saving…' : 'Save'}
               </button>
@@ -250,7 +250,7 @@ export function SOPEditor({ id, sopKey, title, content: initialContent, defaultC
         <div className="bg-white border border-slate-200 rounded-xl shadow-sm">
           <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
             <span className="text-xs text-slate-500">Editing in Markdown — headings (#, ##, ###), bold (**text**), lists (- item), tables</span>
-            <span className={`text-xs ${isDirty ? 'text-amber-500' : 'text-slate-300'}`}>{isDirty ? 'Unsaved changes' : 'No changes'}</span>
+            <span className={`text-xs ${isDirty ? 'text-amber' : 'text-slate-300'}`}>{isDirty ? 'Unsaved changes' : 'No changes'}</span>
           </div>
           <textarea
             value={content}
