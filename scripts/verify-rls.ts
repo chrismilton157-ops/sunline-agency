@@ -323,6 +323,16 @@ async function main() {
       !!resDR.error || (resDR.data ?? []).length === 0,
       { error: resDR.error, data: resDR.data },
     );
+
+    // Phase 26 — setter_sessions is setter/owner-only; a client must see 0 rows.
+    const resSess = await clientPortal
+      .from('setter_sessions')
+      .select('id, state');
+    check(
+      'client cannot read any setter_sessions (no client policy)',
+      !!resSess.error || (resSess.data ?? []).length === 0,
+      { error: resSess.error, data: resSess.data },
+    );
   }
 
   // -----------------------------------------------------------------------
@@ -420,6 +430,33 @@ async function main() {
       !!caErr || (caData ?? []).length === 0,
       { caErr, caData },
     );
+
+    // Phase 26 — setter_sessions: a setter may read ONLY their own dialer
+    // sessions (setter_sessions_read_own), never another user's. Seed one row
+    // for the setter and one for the owner, then verify isolation.
+    const sessSetterId = await setterId(setterEmail);
+    const { data: ownerForSess } = await admin
+      .from('users').select('id').eq('role', 'owner').limit(1).single();
+    const nowSess = new Date().toISOString();
+    const seededSessions = [
+      { setter_id: sessSetterId, state: 'active', started_at: nowSess, ended_at: nowSess, last_heartbeat_at: nowSess },
+      ...(ownerForSess
+        ? [{ setter_id: ownerForSess.id, state: 'active', started_at: nowSess, ended_at: nowSess, last_heartbeat_at: nowSess }]
+        : []),
+    ];
+    const { data: insertedSess } = await admin
+      .from('setter_sessions').insert(seededSessions).select('id');
+    const { data: sessRows, error: sessErr } = await setterPortal
+      .from('setter_sessions').select('setter_id, state');
+    check(
+      'setter reads only their own setter_sessions (never another user\'s)',
+      !sessErr && (sessRows ?? []).length >= 1 && (sessRows ?? []).every((r) => r.setter_id === sessSetterId),
+      { sessErr, sessRows },
+    );
+    // Clean up seeded rows so the fixture stays tidy.
+    if (insertedSess?.length) {
+      await admin.from('setter_sessions').delete().in('id', insertedSess.map((r) => r.id));
+    }
 
     // Cannot read agency_settings (owner-only table)
     const { data: asData, error: asErr } = await setterPortal

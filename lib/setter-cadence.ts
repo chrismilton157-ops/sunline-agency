@@ -9,8 +9,12 @@ export type Pipeline = 1 | 2 | 3;
 // ---------------------------------------------------------------------------
 
 /** Compute which pipeline a lead belongs to based on age and no-answer count. */
-export function computePipeline(createdAt: Date, noAnswerCount: number): Pipeline {
-  const ageDays = (Date.now() - createdAt.getTime()) / 86_400_000;
+export function computePipeline(
+  createdAt: Date,
+  noAnswerCount: number,
+  now: Date = new Date(),
+): Pipeline {
+  const ageDays = (now.getTime() - createdAt.getTime()) / 86_400_000;
   if (ageDays >= 30) return 3;
   if (ageDays >= 7 || noAnswerCount >= 10) return 2;
   return 1;

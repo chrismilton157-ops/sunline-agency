@@ -16,6 +16,11 @@ import {
   submitDisposition,
   submitWrapUp,
   setPipelinePref,
+  startDialerSession,
+  pauseDialer,
+  resumeDialer,
+  heartbeatDialer,
+  endDialerSession,
 } from './actions';
 import { WrapUpWizard } from './WrapUpWizard';
 import { EmptyState } from '@/components/EmptyState';
@@ -72,8 +77,20 @@ export function QueueClient({ leads, userId, initialPipelinePref }: Props) {
   const [pipelinePref, setPipelinePrefState] = useState<Pipeline | null>(initialPipelinePref);
   const [noLeadAvailable, setNoLeadAvailable] = useState(false);
   const autoServedRef = useRef(false);
+  // Talk-time timer: ms timestamp of the last "tap to dial", or null.
+  const dialStartRef = useRef<number | null>(null);
 
   const activeLead = leads.find((l) => l.queue_claimed_by === userId) ?? null;
+
+  // Reset the talk-time timer whenever a new lead is served.
+  useEffect(() => {
+    dialStartRef.current = null;
+  }, [activeLead?.id]);
+
+  function elapsedTalkSeconds(): number | null {
+    if (dialStartRef.current == null) return null;
+    return Math.round((Date.now() - dialStartRef.current) / 1000);
+  }
 
   // Sync paused / no-lead state when leads refresh
   useEffect(() => {
@@ -83,9 +100,37 @@ export function QueueClient({ leads, userId, initialPipelinePref }: Props) {
     }
   }, [activeLead]);
 
-  // Poll for new leads
+  // Start (or restore) the dialer session on mount; end it when the tab is
+  // hidden (so away-time isn't counted as active) and restart on return.
   useEffect(() => {
-    const id = setInterval(() => router.refresh(), POLL_INTERVAL_MS);
+    let cancelled = false;
+    startDialerSession()
+      .then((state) => { if (!cancelled) setPaused(state === 'paused'); })
+      .catch(() => {});
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        endDialerSession().catch(() => {});
+      } else {
+        startDialerSession()
+          .then((state) => setPaused(state === 'paused'))
+          .catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVisibility);
+      endDialerSession().catch(() => {});
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Poll for new leads + keep the dialer session alive.
+  useEffect(() => {
+    const id = setInterval(() => {
+      router.refresh();
+      heartbeatDialer().catch(() => {});
+    }, POLL_INTERVAL_MS);
     return () => clearInterval(id);
   }, [router]);
 
@@ -149,6 +194,19 @@ export function QueueClient({ leads, userId, initialPipelinePref }: Props) {
     });
   }
 
+  function handlePauseToggle() {
+    const next = !paused;
+    setPaused(next);
+    startTransition(async () => {
+      try {
+        if (next) await pauseDialer();
+        else await resumeDialer();
+      } catch {
+        showError('Could not update pause state — please try again.');
+      }
+    });
+  }
+
   async function handlePipelineChange(p: Pipeline | null) {
     setPipelinePrefState(p);
     startTransition(async () => {
@@ -167,6 +225,8 @@ export function QueueClient({ leads, userId, initialPipelinePref }: Props) {
     e.preventDefault();
     if (!disposition || !activeLead) return;
     const fd = new FormData(formRef.current!);
+    const secs = elapsedTalkSeconds();
+    if (secs != null) fd.set('talk_time_seconds', String(secs));
     startTransition(async () => {
       try {
         await submitDisposition(fd);
@@ -184,6 +244,8 @@ export function QueueClient({ leads, userId, initialPipelinePref }: Props) {
   }
 
   function handleWrapUpComplete(fd: FormData) {
+    const secs = elapsedTalkSeconds();
+    if (secs != null) fd.set('talk_time_seconds', String(secs));
     startTransition(async () => {
       try {
         await submitWrapUp(fd);
@@ -268,7 +330,7 @@ export function QueueClient({ leads, userId, initialPipelinePref }: Props) {
         <div className="ml-auto">
           <button
             type="button"
-            onClick={() => setPaused((v) => !v)}
+            onClick={handlePauseToggle}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors
               ${paused
                 ? 'bg-amber/10 text-amber border-amber/30'
@@ -393,6 +455,7 @@ export function QueueClient({ leads, userId, initialPipelinePref }: Props) {
             {activeLead.phone && (
               <a
                 href={`tel:${activeLead.phone.replace(/\s/g, '')}`}
+                onClick={() => { if (dialStartRef.current == null) dialStartRef.current = Date.now(); }}
                 aria-label={`Call ${activeLead.name ?? 'lead'} on ${activeLead.phone}`}
                 className="flex items-center gap-3 px-4 py-3 rounded-lg bg-good/10 border border-good/30
                            hover:bg-good/20 transition-colors group"

@@ -19,6 +19,8 @@ export type DispositionRow = {
   disqual_reason: string | null;
   created_by: string;
   created_at: string;
+  // Phase 26: best-effort talk-time capture (nullable / may be absent).
+  talk_time_seconds?: number | null;
 };
 
 export type ApptRow = {
@@ -30,6 +32,9 @@ export type ApptRow = {
   quality_reason: string | null;
   confirmed_at: string | null;
   appt_date: string;
+  // Phase 26: when the appointment was booked (funnel framing). May be absent
+  // on older selects — falls back to appt_date.
+  created_at?: string | null;
 };
 
 // Resolve which UUID owns each appointment.
@@ -341,4 +346,136 @@ export const SETTER_BENCHMARKS = {
   targetBookingRate: 0.45,
   targetPickupRate: 0.35,
   targetConfirmationRate: 0.80,
+  targetShowRate: 0.70,
 };
+
+// ── Phase 26: personal dashboard ("My Numbers") ─────────────────────────────
+
+// Outcomes that count as the appointment having gone ahead (the sit happened).
+const SAT_OUTCOMES = new Set(['sat', 'sold']);
+
+/** When was this appointment booked? Prefer created_at, fall back to appt_date. */
+function apptBookedAt(a: ApptRow): number {
+  return new Date(a.created_at ?? a.appt_date).getTime();
+}
+
+export type SetterActivity = {
+  dials: number;
+  contacted: number;
+  pickupRate: number | null;
+  leadsWorked: number;
+  talkTimeSeconds: number;
+  talkTimeCaptured: boolean; // false when no attempt in range carried a duration
+};
+
+/**
+ * Own activity numbers for one setter in a range: dials, pickups/answer rate,
+ * distinct leads worked, and best-effort total talk-time.
+ */
+export function computeSetterActivity(
+  setterId: string,
+  disps: DispositionRow[],
+  range: 'today' | 'week' | 'month',
+  now: Date = new Date(),
+): SetterActivity {
+  const { start, end } = rangeBounds(range, now);
+  const mine = disps.filter(
+    (d) =>
+      d.created_by === setterId &&
+      new Date(d.created_at) >= start &&
+      new Date(d.created_at) <= end,
+  );
+
+  const dials = mine.length;
+  const contacted = mine.filter((d) => CONTACT_DISPOSITIONS.has(d.disposition)).length;
+  const leadsWorked = new Set(mine.map((d) => d.lead_id)).size;
+
+  let talkTimeSeconds = 0;
+  let talkTimeCaptured = false;
+  for (const d of mine) {
+    if (d.talk_time_seconds != null && d.talk_time_seconds > 0) {
+      talkTimeSeconds += d.talk_time_seconds;
+      talkTimeCaptured = true;
+    }
+  }
+
+  return {
+    dials,
+    contacted,
+    pickupRate: safe(contacted, dials),
+    leadsWorked,
+    talkTimeSeconds,
+    talkTimeCaptured,
+  };
+}
+
+export type SetterFunnel = {
+  booked: number;
+  confirmed: number;
+  sat: number;
+  noShow: number;
+  cancelled: number;
+  // Of the appointments booked in this period, the % that actually sat/showed
+  // out of those with a terminal show/no-show outcome.
+  showRate: number | null;
+  confirmRate: number | null; // confirmed / booked
+  bookingRatePerDial: number | null;
+  bookingRatePerPickup: number | null;
+};
+
+/**
+ * Booking funnel for ONE setter: of the appointments they booked in the period,
+ * how many are confirmed, sat/showed, no-showed, cancelled — plus booking and
+ * show rates. Cohort is defined by when the appointment was booked (created_at).
+ */
+export function computeSetterFunnel(
+  setter: SetterRow,
+  appts: ApptRow[],
+  disps: DispositionRow[],
+  range: 'today' | 'week' | 'month',
+  now: Date = new Date(),
+): SetterFunnel {
+  const { start, end } = rangeBounds(range, now);
+  const startMs = start.getTime();
+  const endMs = end.getTime();
+
+  const cohort = appts.filter((a) => {
+    if (!apptBelongsTo(a, setter)) return false;
+    const t = apptBookedAt(a);
+    return t >= startMs && t <= endMs;
+  });
+
+  const booked = cohort.length;
+  const confirmed = cohort.filter((a) => a.confirmed_at != null).length;
+  const sat = cohort.filter((a) => SAT_OUTCOMES.has(a.outcome)).length;
+  const noShow = cohort.filter((a) => a.outcome === 'no_show').length;
+  const cancelled = cohort.filter((a) => a.outcome === 'cancelled').length;
+
+  // Dials / pickups this period for booking-rate denominators.
+  const activity = computeSetterActivity(setter.id, disps, range, now);
+
+  return {
+    booked,
+    confirmed,
+    sat,
+    noShow,
+    cancelled,
+    showRate: safe(sat, sat + noShow),
+    confirmRate: safe(confirmed, booked),
+    bookingRatePerDial: safe(booked, activity.dials),
+    bookingRatePerPickup: safe(booked, activity.contacted),
+  };
+}
+
+/**
+ * 1-based leaderboard rank for a setter, using the same bookings-first ordering
+ * as the leaderboard. Returns null if the setter isn't in the list.
+ */
+export function leaderboardRank(
+  stats: SetterOutputStats[],
+  setterId: string,
+): number | null {
+  const ranked = rankByBookings(stats);
+  const idx = ranked.findIndex((s) => s.setterId === setterId);
+  return idx === -1 ? null : idx + 1;
+}
