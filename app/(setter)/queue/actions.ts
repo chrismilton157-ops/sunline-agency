@@ -3,9 +3,15 @@ import { revalidatePath } from 'next/cache';
 import { getServerSupabase } from '@/lib/supabase/server';
 import { getServerAdmin } from '@/lib/supabase/admin';
 import { writeAudit } from '@/lib/audit';
+import {
+  computeNextAvailableAt,
+  effectiveDailyAttempts,
+  toUKDateString,
+} from '@/lib/setter-cadence';
+import type { Pipeline } from '@/lib/types';
 
 // Stale claim threshold: 30 minutes
-const STALE_MS = 30 * 60 * 1000;
+const STALE_MS = 30 * 60 * 1_000;
 
 async function getStaffUser() {
   const supabase = getServerSupabase();
@@ -22,49 +28,116 @@ async function getStaffUser() {
   return { user, supabase };
 }
 
-export async function claimLead(leadId: string) {
+// ---------------------------------------------------------------------------
+// Auto-serve: atomically claim the next eligible lead for this setter.
+// Returns the lead id, or null if no eligible lead exists.
+// p_pipeline: null = auto (P1→P2→P3), 1/2/3 = prefer that pipeline.
+// ---------------------------------------------------------------------------
+export async function serveNextLead(preferredPipeline: Pipeline | null = null) {
   const { user } = await getStaffUser();
   const admin = getServerAdmin();
-  const staleThreshold = new Date(Date.now() - STALE_MS).toISOString();
-  const now = new Date().toISOString();
 
-  // Claim only if: unclaimed, or stale claim, or already claimed by this user
-  await admin
+  // Don't double-serve: if setter already has a fresh claim, leave it
+  const staleAt = new Date(Date.now() - STALE_MS).toISOString();
+  const { data: existing } = await admin
     .from('leads')
-    .update({ queue_claimed_by: user.id, queue_claimed_at: now })
-    .eq('id', leadId)
-    .or(
-      `queue_claimed_by.is.null,queue_claimed_at.lt.${staleThreshold},queue_claimed_by.eq.${user.id}`,
-    );
-
-  // Record first-ever claim permanently (only writes if not already set)
-  const { data: wasClaimed } = await admin
-    .from('leads')
-    .select('first_claimed_at')
-    .eq('id', leadId)
+    .select('id')
+    .eq('queue_claimed_by', user.id)
+    .gt('queue_claimed_at', staleAt)
     .single();
 
-  await admin
-    .from('leads')
-    .update({ first_claimed_by: user.id, first_claimed_at: now })
-    .eq('id', leadId)
-    .is('first_claimed_at', null);
+  if (existing?.id) {
+    revalidatePath('/queue');
+    return existing.id as string;
+  }
 
-  if (!wasClaimed?.first_claimed_at) {
+  // Try preferred pipeline; if none found and pipeline was specified, fall
+  // through to auto so the setter is never idle while other leads exist.
+  let leadId: string | null = null;
+
+  const { data: id1 } = await admin.rpc('serve_next_lead', {
+    p_setter_id: user.id,
+    p_pipeline: preferredPipeline ?? null,
+  });
+  leadId = (id1 as string | null) ?? null;
+
+  if (!leadId && preferredPipeline !== null) {
+    // Auto-drop: try again with no pipeline filter
+    const { data: id2 } = await admin.rpc('serve_next_lead', {
+      p_setter_id: user.id,
+      p_pipeline: null,
+    });
+    leadId = (id2 as string | null) ?? null;
+  }
+
+  // Record first-ever claim for this lead (response-time metric)
+  if (leadId) {
+    const now = new Date().toISOString();
+    const { data: leadMeta } = await admin
+      .from('leads')
+      .select('first_claimed_at')
+      .eq('id', leadId)
+      .single();
+
+    if (!leadMeta?.first_claimed_at) {
+      await admin
+        .from('leads')
+        .update({ first_claimed_by: user.id, first_claimed_at: now })
+        .eq('id', leadId)
+        .is('first_claimed_at', null);
+
+      await writeAudit({
+        actor_id: user.id,
+        actor_role: 'setter',
+        action_type: 'lead.served',
+        entity_type: 'lead',
+        entity_id: leadId,
+        description: `Lead first served to setter (${user.email ?? user.id})`,
+        metadata: { setter_id: user.id, preferred_pipeline: preferredPipeline },
+      });
+    }
+  }
+
+  revalidatePath('/queue');
+  return leadId;
+}
+
+// ---------------------------------------------------------------------------
+// Set pipeline preference for the current setter (or for another setter if
+// called from an owner action — owner passes target_setter_id).
+// ---------------------------------------------------------------------------
+export async function setPipelinePref(
+  pipeline: Pipeline | null,
+  targetSetterId?: string,
+) {
+  const { user } = await getStaffUser();
+  const admin = getServerAdmin();
+  const subjectId = targetSetterId ?? user.id;
+
+  await admin
+    .from('users')
+    .update({ queue_pipeline_pref: pipeline })
+    .eq('id', subjectId);
+
+  if (targetSetterId && targetSetterId !== user.id) {
     await writeAudit({
       actor_id: user.id,
-      actor_role: 'setter',
-      action_type: 'lead.claimed',
-      entity_type: 'lead',
-      entity_id: leadId,
-      description: `Lead first claimed by setter (${user.email ?? user.id})`,
-      metadata: { setter_id: user.id, claimed_at: now },
+      actor_role: 'owner',
+      action_type: 'queue.pipeline_directed',
+      entity_type: 'user',
+      entity_id: targetSetterId,
+      description: `Owner directed setter to pipeline ${pipeline ?? 'auto'}`,
+      metadata: { pipeline, directed_by: user.id },
     });
   }
 
   revalidatePath('/queue');
+  revalidatePath('/pipelines');
 }
 
+// ---------------------------------------------------------------------------
+// Release a lead (kept for edge cases — auto-serve supersedes manual claim)
+// ---------------------------------------------------------------------------
 export async function releaseLead(leadId: string) {
   const { user } = await getStaffUser();
   const admin = getServerAdmin();
@@ -78,6 +151,9 @@ export async function releaseLead(leadId: string) {
   revalidatePath('/queue');
 }
 
+// ---------------------------------------------------------------------------
+// Submit a call disposition with cadence tracking.
+// ---------------------------------------------------------------------------
 export async function submitDisposition(formData: FormData) {
   const { user } = await getStaffUser();
   const admin = getServerAdmin();
@@ -90,7 +166,7 @@ export async function submitDisposition(formData: FormData) {
 
   if (!leadId || !disposition) throw new Error('Missing required fields');
 
-  // 1) Record the disposition
+  // 1) Record the disposition in call_dispositions
   const { error: dispErr } = await admin.from('call_dispositions').insert({
     lead_id: leadId,
     disposition,
@@ -101,26 +177,69 @@ export async function submitDisposition(formData: FormData) {
   });
   if (dispErr) throw dispErr;
 
-  // 2) Update lead: release claim + update status + increment no_answer_count
+  // 2) Read current cadence state
   const { data: currentLead } = await admin
     .from('leads')
-    .select('no_answer_count, client_id')
+    .select('no_answer_count, daily_attempts, daily_attempts_date, client_id')
     .eq('id', leadId)
     .single();
 
+  const now = new Date();
+  const todayUK = toUKDateString(now);
+  const noAnswerCountBefore = currentLead?.no_answer_count ?? 0;
+  const existingDailyAttempts = currentLead?.daily_attempts ?? 0;
+  const existingDailyDate = currentLead?.daily_attempts_date ?? null;
+
+  const todayAttemptsBefore = effectiveDailyAttempts(
+    existingDailyAttempts,
+    existingDailyDate,
+    now,
+  );
+
+  // 3) Compute updates
   const updates: Record<string, unknown> = {
     queue_claimed_by: null,
     queue_claimed_at: null,
+    last_attempt_at: now.toISOString(),
   };
 
   if (disposition === 'no_answer') {
-    updates.no_answer_count = (currentLead?.no_answer_count ?? 0) + 1;
+    const dailyAttemptsAfter = todayAttemptsBefore + 1;
+    updates.no_answer_count = noAnswerCountBefore + 1;
+    updates.daily_attempts = dailyAttemptsAfter;
+    updates.daily_attempts_date = todayUK;
+    updates.next_available_at = computeNextAvailableAt(
+      noAnswerCountBefore,
+      dailyAttemptsAfter,
+      now,
+    ).toISOString();
+    updates.status = 'contacted';
+  } else if (disposition === 'qualified_callback') {
+    // Spoke to them, they want a specific callback — tie to this setter
+    if (!callbackAt) throw new Error('callback_at required for qualified_callback');
+    updates.callback_at = callbackAt;
+    updates.callback_setter_id = user.id;
+    updates.next_available_at = callbackAt; // won't re-surface until callback time
+    updates.status = 'contacted';
+  } else if (disposition === 'callback') {
+    // Answered, wants a different time — return to shared pool at that time
+    if (callbackAt) {
+      updates.next_available_at = callbackAt;
+    }
     updates.status = 'contacted';
   } else if (disposition === 'booked') {
     updates.status = 'booked';
+    // Clear any pending callback so the lead won't resurface
+    updates.callback_at = null;
+    updates.callback_setter_id = null;
+    updates.next_available_at = null;
   } else if (disposition === 'disqualified' || disposition === 'not_interested') {
     updates.status = 'disqualified';
+    updates.next_available_at = null;
+    updates.callback_at = null;
+    updates.callback_setter_id = null;
   } else {
+    // wrong_number and any other outcome
     updates.status = 'contacted';
   }
 
@@ -130,20 +249,24 @@ export async function submitDisposition(formData: FormData) {
     .eq('id', leadId);
   if (leadErr) throw leadErr;
 
-  // 3) If booked, create the appointment
+  // 4) Create appointment if booked
   let newApptId: string | null = null;
   if (disposition === 'booked') {
     const apptDate = formData.get('appt_date') as string;
     const clientId = currentLead?.client_id as string | null;
     if (apptDate && clientId) {
-      const { data: apptRow, error: apptErr } = await admin.from('appointments').insert({
-        lead_id: leadId,
-        client_id: clientId,
-        appt_date: new Date(apptDate).toISOString(),
-        setter: user.email,
-        setter_id: user.id,
-        outcome: 'booked',
-      }).select('id').single();
+      const { data: apptRow, error: apptErr } = await admin
+        .from('appointments')
+        .insert({
+          lead_id: leadId,
+          client_id: clientId,
+          appt_date: new Date(apptDate).toISOString(),
+          setter: user.email,
+          setter_id: user.id,
+          outcome: 'booked',
+        })
+        .select('id')
+        .single();
       if (apptErr) throw apptErr;
       newApptId = apptRow?.id ?? null;
     }
@@ -155,8 +278,14 @@ export async function submitDisposition(formData: FormData) {
     action_type: 'lead.disposition_recorded',
     entity_type: 'lead',
     entity_id: leadId,
-    description: `Setter disposition recorded: ${disposition}${disqualReason ? ` (${disqualReason})` : ''}`,
-    metadata: { disposition, callback_at: callbackAt, disqual_reason: disqualReason, appointment_id: newApptId },
+    description: `Setter disposition: ${disposition}${disqualReason ? ` (${disqualReason})` : ''}`,
+    metadata: {
+      disposition,
+      callback_at: callbackAt,
+      disqual_reason: disqualReason,
+      appointment_id: newApptId,
+      no_answer_count_after: disposition === 'no_answer' ? noAnswerCountBefore + 1 : noAnswerCountBefore,
+    },
   });
 
   if (newApptId) {
@@ -174,6 +303,9 @@ export async function submitDisposition(formData: FormData) {
   revalidatePath('/queue');
 }
 
+// ---------------------------------------------------------------------------
+// Submit qualifying wrap-up (unchanged in logic; cadence release added)
+// ---------------------------------------------------------------------------
 export async function submitWrapUp(formData: FormData) {
   const { user } = await getStaffUser();
   const admin = getServerAdmin();
@@ -201,7 +333,6 @@ export async function submitWrapUp(formData: FormData) {
   });
   if (dispErr) throw dispErr;
 
-  // Helpers to read nullable typed fields from FormData
   const str = (key: string) => (formData.get(key) as string) || null;
   const bool = (key: string): boolean | null => {
     const v = formData.get(key);
@@ -215,7 +346,6 @@ export async function submitWrapUp(formData: FormData) {
     return isNaN(n) ? null : n;
   };
 
-  // Update lead: qualifying fields + status + release claim
   const { error: leadErr } = await admin.from('leads').update({
     is_homeowner:                bool('is_homeowner'),
     already_has_solar:           bool('already_has_solar'),
@@ -232,24 +362,31 @@ export async function submitWrapUp(formData: FormData) {
     wrap_up_completed_at:        new Date().toISOString(),
     queue_claimed_by:            null,
     queue_claimed_at:            null,
+    // Clear cadence gates on terminal outcomes
+    next_available_at:           isDisqualified ? null : null,
+    callback_at:                 null,
+    callback_setter_id:          null,
     status:                      isDisqualified ? 'disqualified' : 'booked',
   }).eq('id', leadId);
   if (leadErr) throw leadErr;
 
-  // Create appointment only when qualified
   let wrapApptId: string | null = null;
   if (!isDisqualified) {
     const apptDate = formData.get('appt_date') as string;
     const clientId = currentLead?.client_id as string | null;
     if (apptDate && clientId) {
-      const { data: wrapAppt, error: apptErr } = await admin.from('appointments').insert({
-        lead_id: leadId,
-        client_id: clientId,
-        appt_date: new Date(apptDate).toISOString(),
-        setter: user.email,
-        setter_id: user.id,
-        outcome: 'booked',
-      }).select('id').single();
+      const { data: wrapAppt, error: apptErr } = await admin
+        .from('appointments')
+        .insert({
+          lead_id: leadId,
+          client_id: clientId,
+          appt_date: new Date(apptDate).toISOString(),
+          setter: user.email,
+          setter_id: user.id,
+          outcome: 'booked',
+        })
+        .select('id')
+        .single();
       if (apptErr) throw apptErr;
       wrapApptId = wrapAppt?.id ?? null;
     }
