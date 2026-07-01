@@ -13,6 +13,15 @@ import type { Pipeline } from '@/lib/types';
 // Stale claim threshold: 30 minutes
 const STALE_MS = 30 * 60 * 1_000;
 
+// Parse a best-effort talk-time value from a form field. Returns null unless a
+// sane positive integer of seconds (capped at 4h to ignore runaway timers).
+function parseTalkTime(raw: FormDataEntryValue | null): number | null {
+  if (raw == null) return null;
+  const n = parseInt(String(raw), 10);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.min(n, 4 * 60 * 60);
+}
+
 async function getStaffUser() {
   const supabase = getServerSupabase();
   const {
@@ -163,6 +172,7 @@ export async function submitDisposition(formData: FormData) {
   const callbackAt = (formData.get('callback_at') as string) || null;
   const disqualReason = (formData.get('disqual_reason') as string) || null;
   const notes = (formData.get('notes') as string) || null;
+  const talkTime = parseTalkTime(formData.get('talk_time_seconds'));
 
   if (!leadId || !disposition) throw new Error('Missing required fields');
 
@@ -173,6 +183,7 @@ export async function submitDisposition(formData: FormData) {
     callback_at: callbackAt,
     disqual_reason: disqualReason,
     notes,
+    talk_time_seconds: talkTime,
     created_by: user.id,
   });
   if (dispErr) throw dispErr;
@@ -329,6 +340,7 @@ export async function submitWrapUp(formData: FormData) {
     disposition: isDisqualified ? 'disqualified' : 'booked',
     disqual_reason: disqualReason,
     notes,
+    talk_time_seconds: parseTalkTime(formData.get('talk_time_seconds')),
     created_by: user.id,
   });
   if (dispErr) throw dispErr;
@@ -415,4 +427,104 @@ export async function submitWrapUp(formData: FormData) {
   }
 
   revalidatePath('/queue');
+}
+
+// ---------------------------------------------------------------------------
+// Dialer pause/resume sessions (Phase 26)
+// Simple start/stop timestamps: at most one OPEN session per setter. Pausing
+// closes the active stretch and opens a paused one; resuming does the reverse.
+// Durations are derived in lib/setter-sessions.ts.
+// ---------------------------------------------------------------------------
+
+type DialerState = 'active' | 'paused';
+
+async function closeOpenSessions(admin: ReturnType<typeof getServerAdmin>, setterId: string) {
+  await admin
+    .from('setter_sessions')
+    .update({ ended_at: new Date().toISOString() })
+    .eq('setter_id', setterId)
+    .is('ended_at', null);
+}
+
+// Ensure the setter has an open dialer session when they land on the queue.
+// Returns the current state so the UI can restore the pause button correctly.
+export async function startDialerSession(): Promise<DialerState> {
+  const { user } = await getStaffUser();
+  const admin = getServerAdmin();
+  const now = new Date().toISOString();
+
+  const { data: open } = await admin
+    .from('setter_sessions')
+    .select('id, state')
+    .eq('setter_id', user.id)
+    .is('ended_at', null)
+    .maybeSingle();
+
+  if (open) {
+    await admin
+      .from('setter_sessions')
+      .update({ last_heartbeat_at: now })
+      .eq('id', open.id);
+    return (open.state as DialerState) ?? 'active';
+  }
+
+  await admin.from('setter_sessions').insert({
+    setter_id: user.id,
+    state: 'active',
+    started_at: now,
+    last_heartbeat_at: now,
+  });
+  return 'active';
+}
+
+// Keep the open session alive (called from the queue's existing poll loop).
+export async function heartbeatDialer(): Promise<void> {
+  const { user } = await getStaffUser();
+  const admin = getServerAdmin();
+  await admin
+    .from('setter_sessions')
+    .update({ last_heartbeat_at: new Date().toISOString() })
+    .eq('setter_id', user.id)
+    .is('ended_at', null);
+}
+
+async function switchDialerState(newState: DialerState): Promise<void> {
+  const { user } = await getStaffUser();
+  const admin = getServerAdmin();
+  const now = new Date().toISOString();
+
+  await closeOpenSessions(admin, user.id);
+  await admin.from('setter_sessions').insert({
+    setter_id: user.id,
+    state: newState,
+    started_at: now,
+    last_heartbeat_at: now,
+  });
+
+  await writeAudit({
+    actor_id: user.id,
+    actor_role: 'setter',
+    action_type: newState === 'paused' ? 'dialer.paused' : 'dialer.resumed',
+    entity_type: 'setter_session',
+    entity_id: user.id,
+    description: `Setter ${newState === 'paused' ? 'paused' : 'resumed'} the dialer`,
+    metadata: { setter_id: user.id },
+  });
+}
+
+export async function pauseDialer(): Promise<void> {
+  await switchDialerState('paused');
+  revalidatePath('/queue');
+}
+
+export async function resumeDialer(): Promise<void> {
+  await switchDialerState('active');
+  revalidatePath('/queue');
+}
+
+// End the setter's dialer session cleanly (tab close / navigate away).
+export async function endDialerSession(): Promise<void> {
+  const { user } = await getStaffUser();
+  const admin = getServerAdmin();
+  await closeOpenSessions(admin, user.id);
 }

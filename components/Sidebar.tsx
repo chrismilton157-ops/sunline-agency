@@ -28,6 +28,8 @@ const OWNER_ITEMS = [
 
 const SETTER_ITEMS = [
   { href: '/queue',       label: 'Call queue' },
+  { href: '/all-leads',   label: 'Leads' },
+  { href: '/my-numbers',  label: 'My Numbers' },
   { href: '/leaderboard', label: 'Leaderboard' },
 ];
 
