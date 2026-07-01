@@ -90,10 +90,13 @@ export type PostcodeVolume = {
 export type CallDispositionType =
   | 'no_answer'
   | 'callback'
+  | 'qualified_callback'
   | 'not_interested'
   | 'wrong_number'
   | 'disqualified'
   | 'booked';
+
+export type Pipeline = 1 | 2 | 3;
 
 export type CallDisposition = {
   id: string;
@@ -106,12 +109,20 @@ export type CallDisposition = {
   created_at: string;
 };
 
-// Extends LeadOwner with queue tracking fields (admin-client only; not in the
-// column-level SELECT grant from migration 0006, so invisible to authenticated).
+// Extends LeadOwner with queue + cadence tracking fields (admin-client only;
+// not in the column-level SELECT grant from migration 0006, invisible to
+// the authenticated role).
 export type LeadQueue = LeadOwner & {
   no_answer_count: number;
   queue_claimed_by: string | null;
   queue_claimed_at: string | null;
+  // Phase 25 cadence fields
+  last_attempt_at: string | null;
+  next_available_at: string | null;
+  daily_attempts: number;
+  daily_attempts_date: string | null;
+  callback_at: string | null;
+  callback_setter_id: string | null;
   dispositions: CallDisposition[];
 };
 

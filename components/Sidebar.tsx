@@ -12,6 +12,7 @@ const OWNER_ITEMS = [
   { href: '/routing',       label: 'Routing' },
   { href: '/leads',         label: 'Leads' },
   { href: '/queue',         label: 'Call queue' },
+  { href: '/pipelines',     label: 'Pipelines' },
   { href: '/setters',       label: 'Setters' },
   { href: '/confirmations', label: 'Confirmations' },
   { href: '/billing',       label: 'Billing' },
