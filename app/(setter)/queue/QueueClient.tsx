@@ -249,14 +249,15 @@ export function QueueClient({ leads, userId, initialPipelinePref }: Props) {
       {/* ── Pipeline switcher + pause control ──────────────────────────── */}
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs text-muted uppercase tracking-wide font-medium">Pipeline:</span>
-        {([null, 1, 2, 3] as const).map((p) => (
+        {/* P1 is omitted — Auto already serves P1-first, so a P1 button would be redundant */}
+        {([null, 2, 3] as const).map((p) => (
           <button
             key={String(p)}
             type="button"
             onClick={() => handlePipelineChange(p as Pipeline | null)}
             disabled={isPending}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors
-              ${pipelinePref === p
+              ${(pipelinePref === p || (p === null && (pipelinePref === null || pipelinePref === 1)))
                 ? 'bg-amber text-white border-amber'
                 : 'bg-bg text-muted border-hairline hover:border-ink/30'
               }`}
