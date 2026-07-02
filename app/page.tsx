@@ -57,7 +57,13 @@ function Nav() {
             Solar Appointments
           </span>
         </div>
-        <nav aria-label="Site navigation">
+        <nav aria-label="Site navigation" className="flex items-center gap-4">
+          <Link
+            href="/for-installers"
+            className="hidden sm:inline text-white/70 hover:text-white text-sm font-medium transition-colors"
+          >
+            For installers
+          </Link>
           <a
             href="#enquiry"
             className="btn btn-primary text-sm px-4 py-2 font-semibold"
