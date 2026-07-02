@@ -929,6 +929,62 @@ async function main() {
     check('confirmer cannot read sop_documents', (confirmerSops?.length ?? 0) === 0, confirmerSops);
   }
 
+  // -----------------------------------------------------------------------
+  // Phase 28 — installer_enquiries (incl. the /for-installers self-audit
+  // funnel). Owner-only: SELECT is revoked from the `authenticated` role, so
+  // NO JWT role (client / setter / confirmer, and even an owner JWT) can read
+  // it — the app reads it via the service role. Inserts happen server-side.
+  // -----------------------------------------------------------------------
+  console.log('Installer enquiries (self-audit funnel) access controls:');
+  {
+    // Seed a self-audit enquiry via the service role, with audit numbers.
+    const { data: seedEnq, error: seedEnqErr } = await admin
+      .from('installer_enquiries')
+      .insert({
+        name: 'RLS Test Installer',
+        company: 'RLS Test Co',
+        email: 'rls-test@example.com',
+        source: 'installer_self_audit',
+        audit_monthly_spend: 2000,
+        audit_appointments: 20,
+        audit_close_rate: 20,
+        audit_cost_per_sale: 500,
+      })
+      .select('id, source, audit_monthly_spend, audit_cost_per_sale')
+      .single();
+    check(
+      'service role can insert an installer_self_audit enquiry with audit numbers',
+      !seedEnqErr &&
+        !!seedEnq?.id &&
+        seedEnq.source === 'installer_self_audit' &&
+        Number(seedEnq.audit_monthly_spend) === 2000 &&
+        Number(seedEnq.audit_cost_per_sale) === 500,
+      { seedEnqErr, seedEnq },
+    );
+
+    // Every authenticated JWT role must see ZERO rows (SELECT revoked).
+    for (const [label, portal] of [
+      ['owner', ownerClient],
+      ['client', clientPortal],
+      ['setter', setterPortal],
+      ['confirmer', confirmerPortal],
+    ] as const) {
+      const { data, error } = await portal
+        .from('installer_enquiries')
+        .select('id, name, audit_cost_per_sale');
+      check(
+        `${label} cannot read installer_enquiries via JWT (SELECT revoked from authenticated)`,
+        !!error || (data ?? []).length === 0,
+        { label, error, rowCount: data?.length },
+      );
+    }
+
+    // Clean up the seeded enquiry.
+    if (seedEnq?.id) {
+      await admin.from('installer_enquiries').delete().eq('id', seedEnq.id);
+    }
+  }
+
   if (failed > 0) {
     console.log(`\n${failed} check(s) failed`);
     process.exit(1);
