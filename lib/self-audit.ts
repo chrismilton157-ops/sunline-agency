@@ -56,6 +56,27 @@ export function computeAudit(input: AuditInput): AuditResult {
   };
 }
 
+/**
+ * Whole-number "Nx higher" multiplier for the result-card badge: how many
+ * times the real cost per sale sits above the apparent cost per appointment.
+ *
+ * Returns `null` when the audit isn't computable, or when the figure rounds to
+ * 1 or less — in that case the number isn't striking enough to be worth a
+ * badge, so the UI hides it rather than showing a limp "1x higher".
+ */
+export function auditMultiplier(result: AuditResult): number | null {
+  if (
+    !result.valid ||
+    result.costPerSale == null ||
+    result.costPerAppointment == null ||
+    result.costPerAppointment <= 0
+  ) {
+    return null;
+  }
+  const multiple = Math.round(result.costPerSale / result.costPerAppointment);
+  return multiple > 1 ? multiple : null;
+}
+
 // ---------------------------------------------------------------------------
 // Enquiry row builder — maps a validated demo request + its audit numbers to
 // the exact shape we insert into installer_enquiries. Pure and separately

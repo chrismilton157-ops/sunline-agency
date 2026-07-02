@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   computeAudit,
+  auditMultiplier,
   buildInstallerAuditRow,
   INSTALLER_SELF_AUDIT_SOURCE,
 } from '../lib/self-audit';
@@ -126,6 +127,41 @@ describe('computeAudit', () => {
       expect(r.costPerSale).toBeNull();
       expect(r.costPerAppointment).toBeNull();
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// auditMultiplier — the "Nx higher" badge number
+// ---------------------------------------------------------------------------
+
+describe('auditMultiplier', () => {
+  it('rounds the real-cost-to-apparent-cost ratio to a whole number', () => {
+    // £2,000, 20 appts, 20% close → £100/appt vs £500/sale → 5x.
+    const r = computeAudit({
+      monthlySpend: 2000,
+      appointments: 20,
+      closeRatePct: 20,
+    });
+    expect(auditMultiplier(r)).toBe(5);
+  });
+
+  it('hides the badge (null) when the ratio rounds to 1 or less', () => {
+    // 100% close → cost per sale equals cost per appointment → 1x, not striking.
+    const r = computeAudit({
+      monthlySpend: 1000,
+      appointments: 10,
+      closeRatePct: 100,
+    });
+    expect(auditMultiplier(r)).toBeNull();
+  });
+
+  it('hides the badge (null) for the divide-by-zero guard state', () => {
+    const r = computeAudit({
+      monthlySpend: 2000,
+      appointments: 0,
+      closeRatePct: 20,
+    });
+    expect(auditMultiplier(r)).toBeNull();
   });
 });
 
