@@ -1,6 +1,9 @@
 import Link from 'next/link';
 import { InstallerAuditFunnel } from '@/components/InstallerAuditFunnel';
 
+// Redeploy trigger: forces a fresh Vercel production build of the redesigned
+// /for-installers result card (no functional change).
+
 export const metadata = {
   title: 'For Installers — What are you really paying per sale? | Sunline',
   description:
